@@ -100,6 +100,7 @@ fun HomeScreen(vm: MainViewModel) {
     val dock = remember(apps, pinned) { AppsRepository.dock(apps, pinned) }
     val unpinned = remember(apps, dock) { apps - dock.toSet() }
     var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
+    var settingsMenu by remember { mutableStateOf(false) }
     val shelf = remember(recents, favourites, library, randomPick) { gameShelf(library, recents, favourites, randomPick) }
     val focused = remember { mutableStateOf<HomeFocus?>(null) }
     val memory = rememberFocusMemory { vm.focusMemory[Screen.HOME] = it }
@@ -128,7 +129,7 @@ fun HomeScreen(vm: MainViewModel) {
                 network = network,
                 memory = memory,
                 onOpenSearch = { vm.open(Screen.SEARCH) },
-                onOpenSettings = { vm.open(Screen.SETTINGS) },
+                onShowSettingsMenu = { settingsMenu = true },
             )
             Column(sections.section(SectionScroller.TOP), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 DockTitle(focused)
@@ -177,12 +178,18 @@ fun HomeScreen(vm: MainViewModel) {
             onDismiss = { actionsFor = null },
         )
     }
+    if (settingsMenu) {
+        SettingsMenuDialog(
+            onOpenLauncherSettings = { vm.open(Screen.SETTINGS) },
+            onDismiss = { settingsMenu = false },
+        )
+    }
 }
 
 private fun dockKey(app: AppEntry) = "dock:${app.packageName}"
 
 @Composable
-private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Unit, onOpenSettings: () -> Unit) {
+private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Unit, onShowSettingsMenu: () -> Unit) {
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Clock(Modifier.weight(1f))
@@ -195,7 +202,13 @@ private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Uni
                     }
                 })
             }
-            GlassPill(text = stringResource(R.string.settings), icon = Icons.Filled.Settings, modifier = memory.tag("pill:settings"), onClick = onOpenSettings)
+            GlassPill(
+                text = stringResource(R.string.settings),
+                icon = Icons.Filled.Settings,
+                modifier = memory.tag("pill:settings"),
+                onClick = { openAndroidSettings(context) },
+                onLongClick = onShowSettingsMenu,
+            )
         }
     }
 }
