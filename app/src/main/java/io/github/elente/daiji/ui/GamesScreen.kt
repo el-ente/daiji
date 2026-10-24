@@ -110,7 +110,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path, SEARCH_FIELD)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_FIELD }, games.firstOrNull()?.path, SEARCH_FIELD)
     }
 
     Column(
