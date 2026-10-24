@@ -1,5 +1,6 @@
 package io.github.elente.daiji.launch
 
+import android.app.ActivityManager
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ComponentName
@@ -91,6 +92,7 @@ object GameLauncher {
             } else {
                 val pkg = settings.installedEmulators[emulator.id]
                     ?: return "${emulator.name} is not installed"
+                killIfRunning(context, pkg)
                 when (emulator.id) {
                     Emulators.RETROARCH -> retroArch(context, pkg, file, system)
                         ?: return "RetroArch has no core set for ${system.name}"
@@ -118,6 +120,17 @@ object GameLauncher {
         } catch (e: IllegalArgumentException) {
             "Can't share ${file.name} with ${emulator.name}"
         }
+    }
+
+    /**
+     * Emulator activities are single-instance: a running one swallows the new intent
+     * and keeps showing the previous game. Only background processes can be killed,
+     * which is exactly the case after the user pressed Home. Android 14+ ignores this
+     * for other packages, so there the user must quit the emulator themselves.
+     */
+    private fun killIfRunning(context: Context, pkg: String) {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        runCatching { activityManager.killBackgroundProcesses(pkg) }
     }
 
     /** Same extras RetroArch's own frontend and other launchers pass. */

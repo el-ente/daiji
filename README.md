@@ -69,8 +69,9 @@ have, matched by file name:
 - ES-DE's `ES-DE/downloaded_media/<system>/covers` and `screenshots`
 - RetroArch's `RetroArch/thumbnails/<Platform>/Named_Boxarts` (covers),
   `Named_Titles` and `Named_Snaps` (screenshots), as downloaded by its
-  Playlist Thumbnails Updater. Needs the retroarch.com build, whose
-  thumbnails folder is `/storage/emulated/0/RetroArch/thumbnails`.
+  Playlist Thumbnails Updater. Thumbnails are matched through the game's label
+  in the RetroArch playlist, so your ROM files can be named anything. Needs the
+  retroarch.com build, whose folder is `/storage/emulated/0/RetroArch`.
 
 Games without artwork get a colored tile with their title.
 

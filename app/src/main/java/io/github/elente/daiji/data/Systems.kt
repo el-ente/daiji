@@ -25,7 +25,7 @@ object Systems {
     val all: List<GameSystem> = listOf(
         GameSystem("nes", "Nintendo Entertainment System", "NES", setOf("nes", "famicom", "fc"), setOf("nes", "fds", "unf", "unif") + archives, "fceumm", retroArchName = "Nintendo - Nintendo Entertainment System"),
         GameSystem("snes", "Super Nintendo", "SNES", setOf("snes", "sfc", "superfamicom", "supernintendo"), setOf("sfc", "smc", "fig", "swc", "bs") + archives, "snes9x", retroArchName = "Nintendo - Super Nintendo Entertainment System"),
-        GameSystem("n64", "Nintendo 64", "N64", setOf("n64", "nintendo64"), setOf("n64", "z64", "v64") + archives, "mupen64plus_next", retroArchName = "Nintendo - Nintendo 64"),
+        GameSystem("n64", "Nintendo 64", "N64", setOf("n64", "nintendo64"), setOf("n64", "z64", "v64") + archives, "mupen64plus_next_gles3", retroArchName = "Nintendo - Nintendo 64"),
         GameSystem("gb", "Game Boy", "GB", setOf("gb", "gameboy"), setOf("gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy"),
         GameSystem("gbc", "Game Boy Color", "GBC", setOf("gbc", "gameboycolor"), setOf("gbc", "gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy Color"),
         GameSystem("gba", "Game Boy Advance", "GBA", setOf("gba", "gameboyadvance"), setOf("gba") + archives, "mgba", retroArchName = "Nintendo - Game Boy Advance"),
