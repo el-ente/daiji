@@ -10,6 +10,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.elente.daiji.data.AcclaimedGames
+import io.github.elente.daiji.data.AcclaimedView
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
 import io.github.elente.daiji.data.Game
@@ -91,6 +92,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Loaded on first use, which is the first library set on the IO thread. */
     val acclaimed: AcclaimedGames by lazy { AcclaimedGames.load(app) }
+
+    private val _acclaimedView = MutableStateFlow(AcclaimedView.EMPTY)
+    val acclaimedView: StateFlow<AcclaimedView> = _acclaimedView.asStateFlow()
 
     private val _randomPick = MutableStateFlow<Game?>(null)
     val randomPick: StateFlow<Game?> = _randomPick.asStateFlow()
@@ -266,6 +270,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun setLibrary(library: Library) {
         _library.value = library
+        _acclaimedView.value = acclaimed.view(library)
         if (_randomPick.value?.path !in library.byPath) rerollRandom()
     }
 

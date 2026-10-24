@@ -49,11 +49,8 @@ import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
 import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
-import io.github.elente.daiji.data.AcclaimedEntry
-import io.github.elente.daiji.data.DaijiDirs
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
-import io.github.elente.daiji.data.RetroArchNames
 import io.github.elente.daiji.data.Systems
 import kotlinx.coroutines.delay
 
@@ -95,8 +92,9 @@ fun GamesScreen(vm: MainViewModel) {
         return
     }
 
-    val acclaimedOwned = remember(library) { library.games.filter(vm.acclaimed::isAcclaimed).sortedBy { it.title } }
-    val acclaimedNotOwned = remember(library) { notOwnedItems(vm.acclaimed.missing(library)) }
+    val acclaimedView by vm.acclaimedView.collectAsStateWithLifecycle()
+    val acclaimedOwned = acclaimedView.owned
+    val acclaimedNotOwned = remember(acclaimedView) { acclaimedView.notOwned.map(GridItem::NotOwned) }
     val labels = FilterLabels(
         all = stringResource(R.string.filter_all),
         favourites = stringResource(R.string.filter_favourites),
@@ -212,23 +210,6 @@ private fun filters(library: Library, hasFavourites: Boolean, hasAcclaimed: Bool
     library.systems
         .filter { library.bySystem[it.id].orEmpty().size > 1 }
         .forEach { add(Filter(it.id, it.shortName)) }
-}
-
-/** Grouped by system in the library's system order, then by title; covers are whatever setup already downloaded. */
-private fun notOwnedItems(entries: List<AcclaimedEntry>): List<GridItem> = entries
-    .sortedWith(compareBy({ Systems.order(it.systemId) }, { it.name }))
-    .map { entry -> GridItem.NotOwned(previewGame(entry)) }
-
-private fun previewGame(entry: AcclaimedEntry): Game {
-    val systemName = Systems.byId(entry.systemId)?.retroArchName
-    val cover = systemName?.let { DaijiDirs.boxArt(it, entry.name) }?.takeIf { it.exists() }
-    return Game(
-        path = "acclaimed:${entry.systemId}:${entry.name}",
-        title = RetroArchNames.shortName(entry.name) ?: entry.name,
-        systemId = entry.systemId,
-        cover = cover?.path,
-        screenshot = null,
-    )
 }
 
 /** Each system's grid takes the shape of its box art, so covers show whole; All mixes shapes in portrait cells. */
