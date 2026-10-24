@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
@@ -64,6 +65,7 @@ import io.github.elente.daiji.data.AppsRepository
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
+import io.github.elente.daiji.remote.HomeShortcuts
 import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -108,6 +110,12 @@ fun HomeScreen(vm: MainViewModel) {
     LaunchedEffect(apps.isNotEmpty()) {
         if (apps.isEmpty()) return@LaunchedEffect
         memory.restore(vm.focusMemory[Screen.HOME], dock.firstOrNull()?.let(::dockKey), "entry:games")
+    }
+
+    val dialogOpen = actionsFor != null || settingsMenu
+    LifecycleResumeEffect(dialogOpen) {
+        if (!dialogOpen) HomeShortcuts.bind { vm.open(Screen.SEARCH) }
+        onPauseOrDispose { HomeShortcuts.unbind() }
     }
 
     val scroll = rememberScrollState()
