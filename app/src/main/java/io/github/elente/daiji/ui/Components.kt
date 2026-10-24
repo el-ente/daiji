@@ -124,11 +124,18 @@ private val SelectKeys = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 /** A frosted pill for the Home header. Android 11 has no live blur, so the frost is a translucent fill and a thin edge. */
 @Composable
-fun GlassPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
+fun GlassPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    onLongClick: (() -> Unit)? = null,
+) {
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        onLongClick = onLongClick,
+        modifier = modifier.menuKey(onLongClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = DaijiColors.Glass,
