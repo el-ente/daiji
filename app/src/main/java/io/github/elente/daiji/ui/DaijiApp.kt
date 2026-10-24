@@ -37,6 +37,7 @@ fun DaijiApp(vm: MainViewModel) {
         ) {
             when (screen) {
                 Screen.HOME -> HomeScreen(vm)
+                Screen.SEARCH -> SearchScreen(vm)
                 Screen.ALL_GAMES -> GamesScreen(vm)
                 Screen.SETTINGS -> SettingsScreen(vm)
                 Screen.SETUP -> SetupScreen(vm)
