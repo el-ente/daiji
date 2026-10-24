@@ -31,6 +31,8 @@
 
     <!-- App actions -->
     <string name="pin_to_home">Fijar en Inicio</string>
+    <string name="move_app">Mover</string>
+    <string name="move_hint">◀ ▶ ▲ ▼ para mover · OK para guardar · Atrás para cancelar</string>
     <string name="unpin_from_home">Quitar de Inicio</string>
     <string name="app_info">Info de la app</string>
 
