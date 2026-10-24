@@ -35,9 +35,15 @@ import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
 
-/** Hold OK or Menu on an app: pin it to Home or unpin it, or open its info page. */
+/** Hold OK or Menu on an app: pin it to Home or unpin it, move it on Home, or open its info page. */
 @Composable
-fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, onDismiss: () -> Unit) {
+fun AppActionsDialog(
+    app: AppEntry,
+    isPinned: Boolean,
+    onTogglePin: () -> Unit,
+    onDismiss: () -> Unit,
+    onMove: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     Dialog(onDismissRequest = onDismiss) {
@@ -60,6 +66,12 @@ fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, 
                     onDismiss()
                 },
             )
+            if (isPinned && onMove != null) {
+                PillButton(text = stringResource(R.string.move_app), modifier = Modifier.fillMaxWidth(), onClick = {
+                    onMove()
+                    onDismiss()
+                })
+            }
             PillButton(text = stringResource(R.string.app_info), modifier = Modifier.fillMaxWidth(), onClick = {
                 AppsRepository.openInfo(context, app)
                 onDismiss()

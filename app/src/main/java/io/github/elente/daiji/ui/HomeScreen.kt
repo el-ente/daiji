@@ -3,6 +3,7 @@
 package io.github.elente.daiji.ui
 
 import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import android.provider.Settings
@@ -37,12 +38,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import io.github.elente.daiji.data.Network
@@ -88,6 +95,8 @@ private val SCROLL_ROOM = 360.dp
 private const val SHELF_RECENTS = 3
 private const val SHELF_FAVOURITES = 8
 private const val SHORT_DATE = DateUtils.FORMAT_ABBREV_ALL or DateUtils.FORMAT_NO_YEAR
+private const val MOVE_DIM_ALPHA = 0.4f
+private val SELECT_KEYS = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 @Composable
 fun HomeScreen(vm: MainViewModel) {
@@ -100,7 +109,9 @@ fun HomeScreen(vm: MainViewModel) {
     val network by vm.network.collectAsStateWithLifecycle()
 
     val home = remember(apps, pinned) { AppsRepository.home(apps, pinned) }
-    val dock = home.take(AppsRepository.DOCK_SIZE)
+    var move by remember { mutableStateOf<AppMove?>(null) }
+    val shown = move?.order ?: home
+    val dock = shown.take(AppsRepository.DOCK_SIZE)
     var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
     var settingsMenu by remember { mutableStateOf(false) }
     val shelf = remember(recents, favourites, library, randomPick) { gameShelf(library, recents, favourites, randomPick) }
@@ -112,10 +123,21 @@ fun HomeScreen(vm: MainViewModel) {
         memory.restore(vm.focusMemory[Screen.HOME], dock.firstOrNull()?.let(::dockKey), "entry:games")
     }
 
-    val dialogOpen = actionsFor != null || settingsMenu
-    LifecycleResumeEffect(dialogOpen) {
-        if (!dialogOpen) HomeShortcuts.bind { vm.open(Screen.SEARCH) }
+    val isBusy = actionsFor != null || settingsMenu || move != null
+    LifecycleResumeEffect(isBusy) {
+        if (!isBusy) HomeShortcuts.bind { vm.open(Screen.SEARCH) }
         onPauseOrDispose { HomeShortcuts.unbind() }
+    }
+    // Tiles are laid out by position, so focus stays on the slot unless it follows the moved app to its new one.
+    var followFocus by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(followFocus) {
+        val key = followFocus ?: return@LaunchedEffect
+        runCatching { memory.requester(key).requestFocus() }
+        followFocus = null
+    }
+    BackHandler(enabled = move != null) {
+        followFocus = move?.let { AppMove(it.app, home).key }
+        move = null
     }
 
     val scroll = rememberScrollState()
@@ -129,6 +151,21 @@ fun HomeScreen(vm: MainViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    val current = move ?: return@onPreviewKeyEvent false
+                    if (event.key == Key.Back) return@onPreviewKeyEvent false
+                    if (event.type == KeyEventType.KeyUp && event.key in SELECT_KEYS) {
+                        vm.setHomeOrder(current.order)
+                        move = null
+                    }
+                    if (event.type == KeyEventType.KeyDown) {
+                        current.step(event.key)?.let {
+                            move = it
+                            followFocus = it.key
+                        }
+                    }
+                    true
+                }
                 .verticalScroll(scroll)
                 .padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -140,10 +177,11 @@ fun HomeScreen(vm: MainViewModel) {
                 onShowSettingsMenu = { settingsMenu = true },
             )
             Column(sections.section(SectionScroller.TOP), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                DockTitle(focused)
+                DockTitle(focused, hint = move?.let { stringResource(R.string.move_hint) })
                 Dock(
                     apps = dock,
                     appsLoaded = apps.isNotEmpty(),
+                    moving = move?.app,
                     memory = memory,
                     focused = focused,
                     onLaunch = vm::launch,
@@ -166,8 +204,9 @@ fun HomeScreen(vm: MainViewModel) {
                 }
             }
             AppsGrid(
-                apps = home.drop(AppsRepository.DOCK_SIZE),
+                apps = shown.drop(AppsRepository.DOCK_SIZE),
                 appCount = apps.size,
+                moving = move?.app,
                 memory = memory,
                 focused = focused,
                 sections = sections,
@@ -186,6 +225,7 @@ fun HomeScreen(vm: MainViewModel) {
             isPinned = app in home,
             onTogglePin = { vm.togglePin(app) },
             onDismiss = { actionsFor = null },
+            onMove = { move = AppMove(app, home) },
         )
     }
     if (settingsMenu) {
@@ -198,6 +238,32 @@ fun HomeScreen(vm: MainViewModel) {
 }
 
 private fun dockKey(app: AppEntry) = "dock:${app.packageName}"
+
+private fun gridKey(app: AppEntry) = "app:${app.packageName}"
+
+/** An app being moved on Home, and the order it would leave if saved now. */
+private data class AppMove(val app: AppEntry, val order: List<AppEntry>) {
+    private val index get() = order.indexOf(app)
+
+    val key get() = if (index < AppsRepository.DOCK_SIZE) dockKey(app) else gridKey(app)
+
+    fun step(direction: Key): AppMove? {
+        val target = moveTarget(index, direction)?.takeIf { it in order.indices } ?: return null
+        return copy(order = order.toMutableList().apply { add(target, removeAt(index)) })
+    }
+}
+
+/** Home reads as one list: the dock, then the grid row by row. Up from the grid's first row lands at the dock's end. */
+private fun moveTarget(index: Int, direction: Key): Int? {
+    val isInDock = index < AppsRepository.DOCK_SIZE
+    return when (direction) {
+        Key.DirectionLeft -> index - 1
+        Key.DirectionRight -> index + 1
+        Key.DirectionUp -> if (isInDock) null else maxOf(index - GRID_COLUMNS, AppsRepository.DOCK_SIZE - 1)
+        Key.DirectionDown -> if (isInDock) AppsRepository.DOCK_SIZE else index + GRID_COLUMNS
+        else -> null
+    }
+}
 
 @Composable
 private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Unit, onShowSettingsMenu: () -> Unit) {
@@ -303,9 +369,9 @@ private fun AmbientGlow(focused: MutableState<HomeFocus?>) {
     )
 }
 
-/** The focused app's name in large light type. */
+/** The focused app's name in large light type, or how to move an app while one is moving. */
 @Composable
-private fun DockTitle(focused: MutableState<HomeFocus?>) {
+private fun DockTitle(focused: MutableState<HomeFocus?>, hint: String?) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -313,7 +379,7 @@ private fun DockTitle(focused: MutableState<HomeFocus?>) {
         contentAlignment = Alignment.BottomStart,
     ) {
         Text(
-            text = (focused.value as? HomeFocus.App)?.app?.label.orEmpty(),
+            text = hint ?: (focused.value as? HomeFocus.App)?.app?.label.orEmpty(),
             color = DaijiColors.Text,
             fontSize = 30.sp,
             fontWeight = FontWeight.Light,
@@ -327,6 +393,7 @@ private fun DockTitle(focused: MutableState<HomeFocus?>) {
 private fun Dock(
     apps: List<AppEntry>,
     appsLoaded: Boolean,
+    moving: AppEntry?,
     memory: FocusMemory,
     focused: MutableState<HomeFocus?>,
     onLaunch: (AppEntry) -> Unit,
@@ -348,7 +415,7 @@ private fun Dock(
             )
         }
         apps.forEach { app ->
-            HomeAppTile(app, dockKey(app), memory, focused, onLaunch, onShowActions)
+            HomeAppTile(app, dockKey(app), moving, memory, focused, onLaunch, onShowActions)
         }
     }
 }
@@ -361,6 +428,7 @@ private fun Dock(
 private fun AppsGrid(
     apps: List<AppEntry>,
     appCount: Int,
+    moving: AppEntry?,
     memory: FocusMemory,
     focused: MutableState<HomeFocus?>,
     sections: SectionScroller,
@@ -376,7 +444,7 @@ private fun AppsGrid(
             Row(modifier = Modifier.padding(horizontal = BAND_PADDING), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { app ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        HomeAppTile(app, "app:${app.packageName}", memory, focused, onLaunch, onShowActions, GridTileWidth, GridTileHeight)
+                        HomeAppTile(app, gridKey(app), moving, memory, focused, onLaunch, onShowActions, GridTileWidth, GridTileHeight)
                         // The dock's large name is scrolled away down here, and many apps only have an icon.
                         AppLabel(app, Modifier.width(GridTileWidth))
                     }
@@ -417,6 +485,7 @@ private fun TopFade(scroll: ScrollState) {
 private fun HomeAppTile(
     app: AppEntry,
     key: String,
+    moving: AppEntry?,
     memory: FocusMemory,
     focused: MutableState<HomeFocus?>,
     onLaunch: (AppEntry) -> Unit,
@@ -430,6 +499,7 @@ private fun HomeAppTile(
         onLongClick = { onShowActions(app) },
         modifier = memory.tag(key)
             .onFocusChanged { if (it.isFocused) focused.value = HomeFocus.App(app) }
+            .alpha(if (moving == null || moving == app) 1f else MOVE_DIM_ALPHA)
             .size(width, height),
     )
 }

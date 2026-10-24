@@ -33,6 +33,8 @@
 
     <!-- App actions -->
     <string name="pin_to_home">Pin to Home</string>
+    <string name="move_app">Move</string>
+    <string name="move_hint">◀ ▶ ▲ ▼ to move · OK to save · Back to cancel</string>
     <string name="unpin_from_home">Unpin from Home</string>
     <string name="app_info">App info</string>
 

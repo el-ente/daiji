@@ -8,6 +8,7 @@
 3. Verify the change compiles: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew -q :app:compileDebugKotlin`
    (Gradle 8.14 rejects newer JDKs; `local.properties` is gitignored, copy it from the main checkout).
 4. Commit, push the branch, and open the PR with `gh pr create` against the main branch.
+5. After you open the PR, ask a subagent to review it. Fix what it finds, then merge the PR.
 
 ## Screenshots in PRs
 

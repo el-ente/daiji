@@ -280,9 +280,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun togglePin(app: AppEntry) {
         val home = AppsRepository.home(_apps.value, _pinnedApps.value).map { it.packageName }
-        val updated = if (app.packageName in home) home - app.packageName else home + app.packageName
-        prefs.setPinnedApps(updated)
-        _pinnedApps.value = updated
+        savePinnedApps(if (app.packageName in home) home - app.packageName else home + app.packageName)
+    }
+
+    fun setHomeOrder(apps: List<AppEntry>) = savePinnedApps(apps.map { it.packageName })
+
+    private fun savePinnedApps(packages: List<String>) {
+        prefs.setPinnedApps(packages)
+        _pinnedApps.value = packages
     }
 
     fun launch(app: AppEntry) {
