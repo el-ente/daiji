@@ -121,7 +121,12 @@ fun HomeScreen(vm: MainViewModel) {
                 .padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Header(network = network, memory = memory, onOpenSettings = { vm.open(Screen.SETTINGS) })
+            Header(
+                network = network,
+                memory = memory,
+                onOpenSearch = { vm.open(Screen.SEARCH) },
+                onOpenSettings = { vm.open(Screen.SETTINGS) },
+            )
             Column(sections.section(SectionScroller.TOP), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 DockTitle(focused)
                 Dock(
@@ -174,11 +179,12 @@ fun HomeScreen(vm: MainViewModel) {
 private fun dockKey(app: AppEntry) = "dock:${app.packageName}"
 
 @Composable
-private fun Header(network: String, memory: FocusMemory, onOpenSettings: () -> Unit) {
+private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Clock(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassPill(text = "Search", icon = Glyphs.Search, modifier = memory.tag("pill:search"), onClick = onOpenSearch)
             if (network.isNotEmpty()) {
                 GlassPill(text = network, icon = networkIcon(network), modifier = memory.tag("pill:network"), onClick = {
                     runCatching {

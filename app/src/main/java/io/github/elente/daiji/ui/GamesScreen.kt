@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -40,10 +41,12 @@ import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
+import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
 private const val GAME_COLUMNS = 7
 private const val FAVOURITES = "favourites"
+private val SearchWidth = 240.dp
 
 private data class Filter(val id: String?, val label: String)
 
@@ -67,12 +70,13 @@ fun GamesScreen(vm: MainViewModel) {
 
     val filters = remember(library, favourites.isEmpty()) { filters(library, hasFavourites = favourites.isNotEmpty()) }
     var filterId by remember { mutableStateOf(vm.allGamesFilter?.takeIf { id -> filters.any { it.id == id } }) }
-    val games = remember(library, favourites, filterId) {
+    var query by remember { mutableStateOf(vm.allGamesQuery) }
+    val games = remember(library, favourites, filterId, query) {
         when (filterId) {
             null -> library.games
             FAVOURITES -> library.games.filter { it.path in favourites }
             else -> library.bySystem[filterId].orEmpty()
-        }
+        }.matchingTitle(query) { it.title }
     }
     val focusedGame = remember { mutableStateOf<Game?>(null) }
     val selectedPill = remember { FocusRequester() }
@@ -94,9 +98,19 @@ fun GamesScreen(vm: MainViewModel) {
     ) {
         ScreenTitle("All games", library.games.size)
         FocusedGameLine(focusedGame, favourites)
-        FilterPills(filters, filterId, selectedPill) { id ->
-            filterId = id
-            vm.allGamesFilter = id
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterPills(filters, filterId, selectedPill, Modifier.weight(1f)) { id ->
+                filterId = id
+                vm.allGamesFilter = id
+            }
+            SearchField(
+                query = query,
+                onQueryChange = {
+                    query = it
+                    vm.allGamesQuery = it
+                },
+                modifier = Modifier.width(SearchWidth),
+            )
         }
         LazyVerticalGrid(
             state = gridState,
@@ -148,9 +162,15 @@ private fun FocusedGameLine(focusedGame: MutableState<Game?>, favourites: Map<St
 
 /** Pills switch on OK, not on focus, so moving across them doesn't reload the grid each step. */
 @Composable
-private fun FilterPills(filters: List<Filter>, selectedId: String?, selectedRequester: FocusRequester, onSelect: (String?) -> Unit) {
+private fun FilterPills(
+    filters: List<Filter>,
+    selectedId: String?,
+    selectedRequester: FocusRequester,
+    modifier: Modifier,
+    onSelect: (String?) -> Unit,
+) {
     Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         filters.forEach { filter ->
