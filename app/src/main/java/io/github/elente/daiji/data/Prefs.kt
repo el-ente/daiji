@@ -43,10 +43,19 @@ class Prefs(context: Context) {
         sp.edit { putString(KEY_RECENTS, o.toString()) }
     }
 
+    fun favourites(): Set<String> = sp.getStringSet(KEY_FAVOURITES, null).orEmpty().toSet()
+
+    fun toggleFavourite(path: String) {
+        val current = favourites()
+        val updated = if (path in current) current - path else current + path
+        sp.edit { putStringSet(KEY_FAVOURITES, updated) }
+    }
+
     private companion object {
         const val KEY_ROM_ROOT = "rom_root"
         const val KEY_EMU = "emu_"
         const val KEY_RECENTS = "recents"
+        const val KEY_FAVOURITES = "favourites"
         const val MAX_RECENTS = 40
     }
 }

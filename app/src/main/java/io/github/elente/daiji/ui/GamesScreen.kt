@@ -60,16 +60,19 @@ private val HeroArtHeight = 236.dp
 fun GamesScreen(vm: MainViewModel) {
     val library by vm.library.collectAsStateWithLifecycle()
     val recents by vm.recents.collectAsStateWithLifecycle()
+    val favourites by vm.favourites.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val hasAccess by vm.hasStorageAccess.collectAsStateWithLifecycle()
 
-    val shelves = remember(library, recents) {
+    val shelves = remember(library, recents, favourites) {
         buildList {
             val recentGames = recents.entries
                 .sortedByDescending { it.value }
                 .mapNotNull { library.byPath[it.key] }
             if (recentGames.isNotEmpty()) add(Shelf("recent", "Recent", recentGames))
+            val favouriteGames = library.games.filter { it.path in favourites }
+            if (favouriteGames.isNotEmpty()) add(Shelf("favourites", "Favourites", favouriteGames))
             library.systems.forEach { s -> add(Shelf(s.id, s.shortName, library.bySystem[s.id].orEmpty())) }
         }
     }
@@ -112,7 +115,10 @@ fun GamesScreen(vm: MainViewModel) {
                 game = hero,
                 lastPlayed = recents[hero.path],
                 emulatorName = system?.let { Emulators.resolve(it, settings).name } ?: "",
+                isFavourite = hero.path in favourites,
                 onPlay = { vm.launch(hero) },
+                onShuffle = { vm.randomGame(excludingPath = hero.path)?.let { focusedPath = it.path } },
+                onToggleFavourite = { vm.toggleFavourite(hero) },
                 onCycleEmulator = { system?.let { vm.cycleEmulator(it) } },
                 downTarget = selectedTab,
             )
@@ -142,6 +148,7 @@ fun GamesScreen(vm: MainViewModel) {
                             .focusProperties { up = selectedTab },
                         onFocused = { focusedPath = game.path },
                         onClick = { vm.launch(game) },
+                        onLongClick = { vm.toggleFavourite(game) },
                     )
                 }
             }
@@ -154,7 +161,10 @@ private fun Hero(
     game: Game,
     lastPlayed: Long?,
     emulatorName: String,
+    isFavourite: Boolean,
     onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onToggleFavourite: () -> Unit,
     onCycleEmulator: () -> Unit,
     downTarget: FocusRequester,
 ) {
@@ -212,6 +222,12 @@ private fun Hero(
             ) {
                 val toTabs = Modifier.focusProperties { down = downTarget }
                 PillButton(text = "Play", onClick = onPlay, primary = true, modifier = toTabs)
+                PillButton(text = "Random", onClick = onShuffle, modifier = toTabs)
+                PillButton(
+                    text = if (isFavourite) "★ Favourite" else "☆ Favourite",
+                    onClick = onToggleFavourite,
+                    modifier = toTabs,
+                )
                 PillButton(text = emulatorName, onClick = onCycleEmulator, modifier = toTabs)
             }
         }
@@ -300,6 +316,7 @@ private fun GameCover(
     modifier: Modifier,
     onFocused: () -> Unit,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val density = LocalDensity.current
     val w = with(density) { CoverWidth.roundToPx() }
@@ -308,6 +325,7 @@ private fun GameCover(
 
     FocusCard(
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier
             .size(CoverWidth, CoverHeight)
             .onFocusChanged { if (it.isFocused) onFocused() },

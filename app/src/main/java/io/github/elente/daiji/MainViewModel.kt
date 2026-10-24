@@ -53,6 +53,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _recents = MutableStateFlow(prefs.recents())
     val recents: StateFlow<Map<String, Long>> = _recents.asStateFlow()
 
+    private val _favourites = MutableStateFlow(prefs.favourites())
+    val favourites: StateFlow<Set<String>> = _favourites.asStateFlow()
+
     private val _settings = MutableStateFlow(SettingsSnapshot(prefs.romRoot, prefs.chosenEmulators(), emptyMap()))
     val settings: StateFlow<SettingsSnapshot> = _settings.asStateFlow()
 
@@ -144,6 +147,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             prefs.markPlayed(game.path)
             _recents.value = prefs.recents()
         }
+    }
+
+    fun toggleFavourite(game: Game) {
+        prefs.toggleFavourite(game.path)
+        _favourites.value = prefs.favourites()
+    }
+
+    /** A random game from the whole library, never the one already shown when there is another. */
+    fun randomGame(excludingPath: String?): Game? {
+        val games = _library.value.games
+        return games.filter { it.path != excludingPath }.randomOrNull() ?: games.randomOrNull()
     }
 
     fun launch(app: AppEntry) {
