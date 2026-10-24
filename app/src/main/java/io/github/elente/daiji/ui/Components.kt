@@ -2,12 +2,17 @@ package io.github.elente.daiji.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -17,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
+import androidx.tv.material3.Icon
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -75,7 +81,7 @@ private fun Modifier.menuKey(action: (() -> Unit)?): Modifier =
 
 /** A frosted pill for the Home header. Android 11 has no live blur, so the frost is a translucent fill and a thin edge. */
 @Composable
-fun GlassPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun GlassPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null) {
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
@@ -92,13 +98,14 @@ fun GlassPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) 
         border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, DaijiColors.GlassEdge), shape = shape)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
     ) {
-        Text(
-            text = text,
+        Row(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-        )
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(text = text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
     }
 }
 

@@ -32,6 +32,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import io.github.elente.daiji.data.Network
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -130,16 +134,20 @@ private fun Header(network: String, memory: FocusMemory, onOpenSettings: () -> U
         Clock(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (network.isNotEmpty()) {
-                GlassPill(text = network, modifier = memory.tag("pill:network"), onClick = {
+                GlassPill(text = network, icon = networkIcon(network), modifier = memory.tag("pill:network"), onClick = {
                     runCatching {
                         context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
                 })
             }
-            GlassPill(text = "Settings", modifier = memory.tag("pill:settings"), onClick = onOpenSettings)
+            GlassPill(text = "Settings", icon = Icons.Filled.Settings, modifier = memory.tag("pill:settings"), onClick = onOpenSettings)
         }
     }
 }
+
+/** The Wi-Fi glyph for a Wi-Fi network; Ethernet and Offline read clearly enough as words. */
+private fun networkIcon(label: String): ImageVector? =
+    if (label == Network.ETHERNET || label == Network.OFFLINE || label == Network.ONLINE) null else Glyphs.Wifi
 
 /** Greeting, a large thin clock and the date. Ticks once a minute, on the minute, and recomposes only itself. */
 @Composable
