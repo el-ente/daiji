@@ -24,6 +24,7 @@ import io.github.elente.daiji.data.Systems
 import io.github.elente.daiji.launch.Emulator
 import io.github.elente.daiji.launch.Emulators
 import io.github.elente.daiji.launch.GameLauncher
+import io.github.elente.daiji.remote.KeyServiceRepair
 import io.github.elente.daiji.setup.RetroArchSetup
 import io.github.elente.daiji.setup.SetupState
 import kotlinx.coroutines.Dispatchers
@@ -104,6 +105,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onResume() {
         val hadAccess = _hasStorageAccess.value
         _hasStorageAccess.value = checkStorageAccess()
+        KeyServiceRepair.repair(getApplication())
         viewModelScope.launch(Dispatchers.IO) {
             refreshPlayStats()
             _network.value = Network.label(getApplication())

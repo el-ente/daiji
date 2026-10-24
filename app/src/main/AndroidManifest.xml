@@ -13,6 +13,10 @@
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Only to switch the remote-buttons service back on after an update; granted over ADB, never asked for. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Only to show the Wi-Fi network's name on Home; granted over ADB, never asked for. -->

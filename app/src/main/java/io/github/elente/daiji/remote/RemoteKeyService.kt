@@ -1,6 +1,7 @@
 package io.github.elente.daiji.remote
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.content.SharedPreferences
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
@@ -20,6 +21,12 @@ class RemoteKeyService : AccessibilityService() {
         super.onServiceConnected()
         loadMappings()
         RemoteButtons.prefs(this).registerOnSharedPreferenceChangeListener(mappingsChanged)
+        KeyServiceRepair.connected(this)
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        KeyServiceRepair.turnedOff(this)
+        return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
