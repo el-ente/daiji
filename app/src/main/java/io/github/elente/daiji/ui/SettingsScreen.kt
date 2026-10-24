@@ -140,6 +140,9 @@ fun SettingsScreen(vm: MainViewModel) {
             )
         }
 
+        item { SectionTitle("Remote buttons") }
+        item { RemoteButtonsSection() }
+
         item { SectionTitle("Device") }
         item {
             SettingRow(

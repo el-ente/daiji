@@ -51,6 +51,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Remote buttons set in Settings, from any app. Off until the user turns it on in Accessibility. -->
+        <service
+            android:name=".remote.RemoteKeyService"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/remote_key_service" />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
