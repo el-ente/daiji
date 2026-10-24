@@ -17,20 +17,25 @@ object RomScanner {
         "Emulation/roms", "Emulation/ROMs", "RetroArch/roms",
     )
 
+    /** Internal storage first, then SD cards and USB drives. */
+    fun volumes(): List<File> {
+        val external = File("/storage").listFiles()
+            .orEmpty()
+            .filter { it.isDirectory && it.name != "emulated" && it.name != "self" }
+            .sortedBy { it.name }
+        return listOf(Environment.getExternalStorageDirectory()) + external
+    }
+
     /** ROM folders that already exist on internal storage, SD cards or USB drives. */
-    fun candidateRoots(): List<File> {
-        val volumes = mutableListOf(Environment.getExternalStorageDirectory())
-        File("/storage").listFiles()
-            ?.filter { it.isDirectory && it.name != "emulated" && it.name != "self" }
-            ?.let { volumes.addAll(it) }
-        return volumes
+    fun candidateRoots(): List<File> =
+        volumes()
             .flatMap { volume -> rootNames.map { File(volume, it) } }
             .filter { it.isDirectory }
             .distinctBy { it.path.lowercase() }
-    }
 
     fun scan(root: File): List<Game> {
         val esdeMedia = File(Environment.getExternalStorageDirectory(), "ES-DE/downloaded_media")
+        val retroArchThumbnails = File(Environment.getExternalStorageDirectory(), "RetroArch/thumbnails")
         val result = ArrayList<Game>()
         val dirs = root.listFiles() ?: return emptyList()
 
@@ -39,11 +44,15 @@ object RomScanner {
             val system = Systems.byFolder(dir.name) ?: continue
             val files = dir.listFiles() ?: continue
 
-            // Local media wins over ES-DE's downloaded media.
+            // Local media wins over ES-DE's downloaded media; RetroArch thumbnails are the last resort.
             val covers = indexImages(File(esdeMedia, "${dir.name}/covers")) +
                 indexImages(File(dir, "media/covers"))
             val screenshots = indexImages(File(esdeMedia, "${dir.name}/screenshots")) +
                 indexImages(File(dir, "media/screenshots"))
+            val retroArchDir = system.retroArchName?.let { File(retroArchThumbnails, it) }
+            val retroArchCovers = indexImages(retroArchDir?.resolve("Named_Boxarts"))
+            val retroArchScreenshots = indexImages(retroArchDir?.resolve("Named_Titles")) +
+                indexImages(retroArchDir?.resolve("Named_Snaps"))
 
             // Multi-disc games: hide the discs an .m3u playlist already lists.
             val listedInPlaylist = HashSet<String>()
@@ -66,8 +75,8 @@ object RomScanner {
                     path = file.path,
                     title = cleanTitle(base),
                     systemId = system.id,
-                    cover = covers[base],
-                    screenshot = screenshots[base],
+                    cover = covers[base] ?: retroArchCovers[retroArchThumbnailName(base)],
+                    screenshot = screenshots[base] ?: retroArchScreenshots[retroArchThumbnailName(base)],
                 )
             }
         }
@@ -77,11 +86,16 @@ object RomScanner {
         )
     }
 
-    private fun indexImages(dir: File): Map<String, String> =
-        dir.listFiles()
+    private fun indexImages(dir: File?): Map<String, String> =
+        dir?.listFiles()
             ?.filter { it.isFile && it.extension.lowercase() in imageExtensions }
             ?.associate { it.nameWithoutExtension to it.path }
             ?: emptyMap()
+
+    /** RetroArch replaces these characters with `_` when it saves a thumbnail. */
+    private val retroArchReservedChars = Regex("""[&*/:`<>?\\|]""")
+
+    private fun retroArchThumbnailName(label: String): String = label.replace(retroArchReservedChars, "_")
 
     /** "Chrono Trigger (USA) [!]" becomes "Chrono Trigger". */
     fun cleanTitle(name: String): String {

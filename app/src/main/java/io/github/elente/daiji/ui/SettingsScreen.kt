@@ -8,9 +8,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,12 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,12 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +36,7 @@ import androidx.tv.material3.Text
 import io.github.elente.daiji.BuildConfig
 import io.github.elente.daiji.MainViewModel
 import io.github.elente.daiji.launch.Emulators
-import kotlinx.coroutines.delay
+import java.io.File
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
@@ -56,10 +46,29 @@ fun SettingsScreen(vm: MainViewModel) {
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val hasAccess by vm.hasStorageAccess.collectAsStateWithLifecycle()
 
-    var editingPath by remember { mutableStateOf(false) }
+    var pickingFolder by remember { mutableStateOf(false) }
+    var returnedFromPicker by remember { mutableStateOf(false) }
+    val romsFolderRow = remember { FocusRequester() }
     val legacyPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.onResume()
     }
+
+    if (pickingFolder) {
+        FolderPicker(
+            start = (settings.romRoot ?: vm.candidateRoots().firstOrNull())?.let(::File),
+            onPick = {
+                vm.setRomRoot(it.path)
+                pickingFolder = false
+                returnedFromPicker = true
+            },
+            onCancel = {
+                pickingFolder = false
+                returnedFromPicker = true
+            },
+        )
+        return
+    }
+    if (returnedFromPicker) RequestFocusWhenReady(romsFolderRow)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -90,29 +99,9 @@ fun SettingsScreen(vm: MainViewModel) {
             SettingRow(
                 title = "ROMs folder",
                 value = settings.romRoot ?: "Not set",
-                onClick = {
-                    val candidates = vm.candidateRoots()
-                    if (candidates.isEmpty()) {
-                        vm.toast("No ROMs folder found. Create one called ROMs, or type a path below.")
-                    } else {
-                        val next = candidates[(candidates.indexOf(settings.romRoot) + 1) % candidates.size]
-                        vm.setRomRoot(next)
-                    }
-                },
+                onClick = { pickingFolder = true },
+                modifier = Modifier.focusRequester(romsFolderRow),
             )
-        }
-        item {
-            if (editingPath) {
-                PathEditor(
-                    initial = settings.romRoot ?: "/storage/emulated/0/ROMs",
-                    onSave = {
-                        vm.setRomRoot(it)
-                        editingPath = false
-                    },
-                )
-            } else {
-                SettingRow(title = "Type a folder path", value = "", onClick = { editingPath = true })
-            }
         }
         item {
             SettingRow(
@@ -184,10 +173,10 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun SettingRow(title: String, value: String, onClick: () -> Unit) {
+internal fun SettingRow(title: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     FocusCard(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         focusedContainer = DaijiColors.SurfaceHigh,
         focusedScale = 1.01f,
     ) {
@@ -213,43 +202,6 @@ private fun SettingRow(title: String, value: String, onClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-@Composable
-private fun PathEditor(initial: String, onSave: (String) -> Unit) {
-    var text by remember { mutableStateOf(initial) }
-    val field = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        repeat(5) {
-            if (runCatching { field.requestFocus() }.isSuccess) return@LaunchedEffect
-            delay(32)
-        }
-    }
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .background(DaijiColors.Surface, RoundedCornerShape(10.dp))
-                .padding(horizontal = 18.dp, vertical = 14.dp),
-        ) {
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                textStyle = TextStyle(color = DaijiColors.Text, fontSize = 15.sp),
-                cursorBrush = SolidColor(DaijiColors.Accent),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onSave(text) }),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(field),
-            )
-        }
-        PillButton(text = "Save", onClick = { onSave(text) }, primary = true)
     }
 }
 

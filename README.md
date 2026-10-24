@@ -49,7 +49,8 @@ Put each system in its own folder inside a `ROMs` folder:
 ```
 
 Daiji finds a `ROMs`, `Roms` or `Games` folder on internal storage, SD cards
-and USB drives by itself. You can also pick or type a folder in Settings.
+and USB drives by itself. You can also browse to any folder with the remote
+in Settings → ROMs folder.
 Region and dump tags like `(USA)` or `[!]` are hidden from titles. Discs
 listed in an `.m3u` playlist are hidden behind the playlist.
 
@@ -66,8 +67,18 @@ have, matched by file name:
 
 - `ROMs/<system>/media/covers/<game>.png` and `media/screenshots/<game>.png`
 - ES-DE's `ES-DE/downloaded_media/<system>/covers` and `screenshots`
+- RetroArch's `RetroArch/thumbnails/<Platform>/Named_Boxarts` (covers),
+  `Named_Titles` and `Named_Snaps` (screenshots), as downloaded by its
+  Playlist Thumbnails Updater. Needs the retroarch.com build, whose
+  thumbnails folder is `/storage/emulated/0/RetroArch/thumbnails`.
 
 Games without artwork get a colored tile with their title.
+
+## Random pick and favourites
+
+- **Random** in the game panel shows a random game from your whole library. Press it again for another.
+- **☆ Favourite** saves the shown game; it turns to ★ when saved. Holding OK on a cover does the same.
+- Saved games appear in a **Favourites** shelf, right after Recent.
 
 ## Emulators
 
