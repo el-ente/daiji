@@ -6,7 +6,9 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.drawable.toBitmap
@@ -28,6 +30,7 @@ object ImageCache {
     }
 
     private val bannerKeys = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val tones = java.util.concurrent.ConcurrentHashMap<String, Color>()
 
     fun peek(key: String): ImageBitmap? = cache.get(key)
 
@@ -53,6 +56,36 @@ object ImageCache {
             bitmap to isBanner
         }
     }
+
+    /** The average colour of an app's art, for the glow behind its name. Read from the cached tile, off the main thread. */
+    suspend fun appTone(context: Context, app: AppEntry, width: Int, height: Int): Color? {
+        tones[app.packageName]?.let { return it }
+        val art = loadAppArt(context, app, width, height)?.first ?: return null
+        return withContext(Dispatchers.Default) { averageColor(art) }?.also { tones[app.packageName] = it }
+    }
+
+    private fun averageColor(image: ImageBitmap): Color? {
+        val bitmap = image.asAndroidBitmap()
+        var r = 0L
+        var g = 0L
+        var b = 0L
+        var count = 0
+        for (y in 0 until TONE_GRID) {
+            for (x in 0 until TONE_GRID) {
+                val pixel = bitmap.getPixel(x * (bitmap.width - 1) / (TONE_GRID - 1), y * (bitmap.height - 1) / (TONE_GRID - 1))
+                if (android.graphics.Color.alpha(pixel) < OPAQUE_ENOUGH) continue
+                r += android.graphics.Color.red(pixel)
+                g += android.graphics.Color.green(pixel)
+                b += android.graphics.Color.blue(pixel)
+                count++
+            }
+        }
+        if (count == 0) return null
+        return Color(red = (r / count).toInt(), green = (g / count).toInt(), blue = (b / count).toInt())
+    }
+
+    private const val TONE_GRID = 8
+    private const val OPAQUE_ENOUGH = 128
 
     private fun decodeFile(path: String, width: Int, height: Int): ImageBitmap? = try {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -83,6 +116,15 @@ fun rememberFileImage(path: String?, width: Int, height: Int): ImageBitmap? {
         width,
     ) {
         value = if (path == null) null else ImageCache.loadFile(path, width, height)
+    }
+    return state.value
+}
+
+@Composable
+fun rememberAppTone(app: AppEntry?, width: Int, height: Int): Color? {
+    val context = LocalContext.current
+    val state = produceState<Color?>(initialValue = null, app?.packageName) {
+        value = app?.let { ImageCache.appTone(context.applicationContext, it, width, height) }
     }
     return state.value
 }

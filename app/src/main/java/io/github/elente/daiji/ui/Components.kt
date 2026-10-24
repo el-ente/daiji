@@ -8,6 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,7 +21,10 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 
-/** A focusable card: scales up and shows an accent ring when the remote lands on it. */
+/**
+ * A focusable card: scales up and shows a thin glass edge when the remote lands on it. The Menu key does what
+ * holding OK does, for remotes that have one; holding OK keeps working on those that don't.
+ */
 @Composable
 fun FocusCard(
     onClick: () -> Unit,
@@ -32,7 +40,7 @@ fun FocusCard(
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier,
+        modifier = modifier.menuKey(onLongClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = container,
@@ -45,13 +53,53 @@ fun FocusCard(
         scale = ClickableSurfaceDefaults.scale(focusedScale = focusedScale),
         border = if (showRing) {
             ClickableSurfaceDefaults.border(
-                focusedBorder = Border(border = BorderStroke(3.dp, DaijiColors.Accent), shape = shape),
+                focusedBorder = Border(border = BorderStroke(2.dp, DaijiColors.GlassEdge), shape = shape),
             )
         } else {
             ClickableSurfaceDefaults.border()
         },
         content = content,
     )
+}
+
+private fun Modifier.menuKey(action: (() -> Unit)?): Modifier =
+    if (action == null) {
+        this
+    } else {
+        onPreviewKeyEvent { event ->
+            if (event.key != Key.Menu) return@onPreviewKeyEvent false
+            if (event.type == KeyEventType.KeyUp) action()
+            true
+        }
+    }
+
+/** A frosted pill for the Home header. Android 11 has no live blur, so the frost is a translucent fill and a thin edge. */
+@Composable
+fun GlassPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = DaijiColors.Glass,
+            contentColor = DaijiColors.Text,
+            focusedContainerColor = DaijiColors.Text,
+            focusedContentColor = DaijiColors.OnAccent,
+            pressedContainerColor = DaijiColors.Text,
+            pressedContentColor = DaijiColors.OnAccent,
+        ),
+        border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, DaijiColors.GlassEdge), shape = shape)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+    }
 }
 
 /** A pill button. Primary is amber, secondary is gray; both turn bright when focused. */

@@ -76,11 +76,22 @@ have, matched by file name:
 
 Games without artwork get a colored tile with their title.
 
-## Random pick and favourites
+## Home
 
-- **Random** in the game panel shows a random game from your whole library. Press it again for another.
-- **☆ Favourite** saves the shown game; it turns to ★ when saved. Holding OK on a cover does the same.
-- Saved games appear in a **Favourites** shelf, right after Recent.
+Home is the first screen, and Back always returns to it, to the element you left.
+
+- **Header:** greeting, clock and date, and pills for the network (opens Wi-Fi settings) and Daiji's settings.
+  The Wi-Fi name needs location access, which a TV never asks for:
+  `adb shell pm grant io.github.elente.daiji android.permission.ACCESS_FINE_LOCATION`. Without it the pill says Wi-Fi.
+- **Dock:** up to 6 pinned apps; the focused app's name shows above it, over a glow in its banner's colour.
+  Until you pin one, the first four TV apps show.
+- **Continue, Favourite, Random:** the last game played, the latest favourite and a random game. OK plays.
+  Holding OK on Random picks another; on the others it adds or removes the favourite.
+- **All games:** every game in a grid. The pills on top (All, ★ Favourites, one per system with more than one
+  game) switch on OK. Holding OK on a game adds or removes it from favourites.
+- **All apps:** every app. Holding OK pins it to the dock, unpins it, or opens its info page.
+
+Remotes with a Menu key can use it wherever holding OK works.
 
 ## Emulators
 
