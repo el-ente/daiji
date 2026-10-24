@@ -60,13 +60,13 @@ class Prefs(context: Context) {
         sp.edit { putStringSet(KEY_FAVOURITES, updated) }
     }
 
-    private companion object {
-        const val KEY_ROM_ROOT = "rom_root"
-        const val KEY_EMU = "emu_"
-        const val KEY_RECENTS = "recents"
-        const val KEY_FAVOURITES = "favourites"
-        const val KEY_CORES_IMPORTED = "cores_imported"
-        const val KEY_SETUP_OFFERED = "setup_offered"
+    companion object {
+        private const val KEY_ROM_ROOT = "rom_root"
+        private const val KEY_EMU = "emu_"
+        private const val KEY_RECENTS = "recents"
+        private const val KEY_FAVOURITES = "favourites"
+        private const val KEY_CORES_IMPORTED = "cores_imported"
+        private const val KEY_SETUP_OFFERED = "setup_offered"
         const val MAX_RECENTS = 40
     }
 }

@@ -31,13 +31,14 @@ object RetroArchConfig {
     }
 
     private fun managedEntries(): Map<String, String> {
-        val dirs = listOf(DaijiDirs.cores, DaijiDirs.thumbnails, DaijiDirs.playlists) +
+        val dirs = listOf(DaijiDirs.cores, DaijiDirs.thumbnails, DaijiDirs.playlists, DaijiDirs.databases) +
             listOf("saves", "states", "system").map { File(DaijiDirs.retroArch, it) }
         dirs.forEach { it.mkdirs() }
         return mapOf(
             "core_assets_directory" to DaijiDirs.cores.path,
             "thumbnails_directory" to DaijiDirs.thumbnails.path,
             "playlist_directory" to DaijiDirs.playlists.path,
+            "content_database_path" to DaijiDirs.databases.path,
             "savefile_directory" to File(DaijiDirs.retroArch, "saves").path,
             "savestate_directory" to File(DaijiDirs.retroArch, "states").path,
             "system_directory" to File(DaijiDirs.retroArch, "system").path,

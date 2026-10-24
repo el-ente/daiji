@@ -61,6 +61,7 @@ fun GamesScreen(vm: MainViewModel) {
     val library by vm.library.collectAsStateWithLifecycle()
     val recents by vm.recents.collectAsStateWithLifecycle()
     val favourites by vm.favourites.collectAsStateWithLifecycle()
+    val playtime by vm.playtime.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val scanning by vm.scanning.collectAsStateWithLifecycle()
     val hasAccess by vm.hasStorageAccess.collectAsStateWithLifecycle()
@@ -114,6 +115,7 @@ fun GamesScreen(vm: MainViewModel) {
             Hero(
                 game = hero,
                 lastPlayed = recents[hero.path],
+                playtime = playtime[hero.path],
                 emulatorName = system?.let { Emulators.resolve(it, settings).name } ?: "",
                 isFavourite = hero.path in favourites,
                 onPlay = { vm.launch(hero) },
@@ -160,6 +162,7 @@ fun GamesScreen(vm: MainViewModel) {
 private fun Hero(
     game: Game,
     lastPlayed: Long?,
+    playtime: Long?,
     emulatorName: String,
     isFavourite: Boolean,
     onPlay: () -> Unit,
@@ -174,15 +177,10 @@ private fun Hero(
     val artH = with(density) { HeroArtHeight.roundToPx() }
     val art = rememberFileImage(game.screenshot ?: game.cover, artW, artH)
 
-    val played = if (lastPlayed != null) {
-        "Last played " + DateUtils.getRelativeTimeSpanString(
-            lastPlayed,
-            System.currentTimeMillis(),
-            DateUtils.MINUTE_IN_MILLIS,
-        )
-    } else {
-        "Not played yet"
-    }
+    val details = with(game.info) {
+        listOfNotNull(developer, year?.toString(), genre, players?.let(::playersLabel))
+    }.ifEmpty { listOfNotNull(system?.name) }
+    val activity = listOfNotNull(lastPlayedLabel(lastPlayed), playtime?.let { "Played " + durationLabel(it) })
 
     Row(
         modifier = Modifier
@@ -210,7 +208,14 @@ private fun Hero(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = listOfNotNull(system?.name, played).joinToString(" · "),
+                text = details.joinToString(" · "),
+                color = DaijiColors.Muted,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = activity.joinToString(" · "),
                 color = DaijiColors.Muted,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -256,6 +261,24 @@ private fun Hero(
                 )
             }
         }
+    }
+}
+
+private fun lastPlayedLabel(lastPlayed: Long?): String =
+    if (lastPlayed == null) {
+        "Not played yet"
+    } else {
+        "Last played " + DateUtils.getRelativeTimeSpanString(lastPlayed, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+    }
+
+private fun playersLabel(players: Int): String = if (players == 1) "1 player" else "$players players"
+
+private fun durationLabel(seconds: Long): String {
+    val minutes = seconds / 60
+    return when {
+        minutes >= 60 -> "${minutes / 60}h ${minutes % 60}m"
+        minutes >= 1 -> "$minutes min"
+        else -> "under a minute"
     }
 }
 

@@ -16,4 +16,5 @@ object DaijiDirs {
     val retroArch: File get() = File(root, "retroarch")
     val retroArchConfig: File get() = File(retroArch, "retroarch.cfg")
     val playlists: File get() = File(retroArch, "playlists")
+    val databases: File get() = File(retroArch, "database/rdb")
 }
