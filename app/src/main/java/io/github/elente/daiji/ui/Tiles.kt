@@ -98,6 +98,7 @@ fun GameTile(
     marker: String? = null,
     showCaption: Boolean = landscape,
     artScale: ContentScale = ContentScale.Crop,
+    loadArt: Boolean = true,
 ) {
     FocusCard(
         onClick = onClick,
@@ -106,7 +107,11 @@ fun GameTile(
         container = DaijiColors.systemTone(game.systemId),
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val artPath = if (landscape) game.screenshot ?: game.cover else game.cover ?: game.screenshot
+            val artPath = when {
+                !loadArt -> null
+                landscape -> game.screenshot ?: game.cover
+                else -> game.cover ?: game.screenshot
+            }
             val art = rememberTileArt(artPath, maxWidth, maxHeight)
             if (art != null) {
                 Image(
