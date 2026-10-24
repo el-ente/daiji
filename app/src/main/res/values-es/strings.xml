@@ -24,9 +24,8 @@
     <string name="no_games_title">Aún no hay juegos</string>
     <string name="no_games_scanning">Buscando tus ROMs…</string>
     <string name="no_games_no_access">Daiji necesita acceso al almacenamiento para leer tus ROMs.</string>
-    <string name="no_games_no_root">Pon tus ROMs en una carpeta como ROMs/snes o ROMs/psx y luego elige esa carpeta en Ajustes.</string>
+    <string name="no_games_no_root">Pon tus ROMs en una carpeta como ROMs/snes o ROMs/psx y luego elige esa carpeta en Ajustes de juegos.</string>
     <string name="no_games_none_found">No se encontraron juegos. Cada sistema necesita su propia subcarpeta, como ROMs/snes o ROMs/gba.</string>
-    <string name="open_settings">Abrir ajustes</string>
 
     <!-- App actions -->
     <string name="pin_to_home">Fijar en Inicio</string>
@@ -36,7 +35,6 @@
     <!-- Settings -->
     <string name="section_library">Biblioteca</string>
     <string name="storage_access">Acceso al almacenamiento</string>
-    <string name="storage_granted">Concedido</string>
     <string name="storage_needed">Necesario — selecciona para concederlo</string>
     <string name="roms_folder">Carpeta de ROMs</string>
     <string name="not_set">Sin definir</string>
@@ -47,6 +45,10 @@
         <item quantity="many">%1$d juegos</item>
         <item quantity="other">%1$d juegos</item>
     </plurals>
+    <string name="games_settings">Ajustes de juegos</string>
+    <string name="retroarch">RetroArch</string>
+    <string name="retroarch_installed">Instalado</string>
+    <string name="retroarch_not_installed_set_up">No instalado — selecciona para configurarlo</string>
     <string name="section_emulators">Emuladores</string>
     <string name="set_up_retroarch">Configurar RetroArch</string>
     <string name="setup_done">Listo</string>
@@ -54,7 +56,6 @@
     <string name="no_systems">Los sistemas aparecen aquí cuando se encuentran juegos.</string>
     <string name="emulator_not_installed">%1$s (no instalado)</string>
     <string name="emulator_ask_android">Preguntar a Android</string>
-    <string name="section_device">Dispositivo</string>
     <string name="android_settings">Ajustes de Android</string>
     <string name="home_screen_hint">Para que Daiji sea tu pantalla de inicio en Google TV, desactiva el launcher de fábrica por ADB:</string>
     <string name="grant_over_adb">Concédelo por ADB: %1$s</string>

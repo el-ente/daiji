@@ -35,7 +35,7 @@ fun SetupScreen(vm: MainViewModel) {
     val setup by vm.setup.collectAsStateWithLifecycle()
     val primaryButton = remember { FocusRequester() }
 
-    BackHandler { vm.closeSetup() }
+    BackHandler { vm.back() }
     RequestFocusWhenReady(primaryButton)
 
     LazyColumn(
@@ -81,7 +81,7 @@ private fun Actions(setup: SetupState, vm: MainViewModel, modifier: Modifier, pr
             !setup.isInstalled -> PillButton(stringResource(R.string.setup_install), vm::runSetup, Modifier.focusRequester(primaryButton), primary = true)
             !setup.isProvisioned -> PillButton(stringResource(R.string.setup_provision), vm::runSetup, Modifier.focusRequester(primaryButton), primary = true)
             !setup.isComplete -> ImportCores(vm, primaryButton)
-            else -> PillButton(stringResource(R.string.setup_done), vm::closeSetup, Modifier.focusRequester(primaryButton), primary = true)
+            else -> PillButton(stringResource(R.string.setup_done), vm::back, Modifier.focusRequester(primaryButton), primary = true)
         }
         if (setup.isProvisioned && setup[Step.THUMBNAILS].status != StepStatus.RUNNING) {
             PillButton(stringResource(R.string.setup_run_again), vm::runSetup)

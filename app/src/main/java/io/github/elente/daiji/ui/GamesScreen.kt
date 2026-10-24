@@ -23,6 +23,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -47,6 +49,7 @@ import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
 private const val GAME_COLUMNS = 7
+private const val GAMES_SETTINGS_PILL = "pill:settings"
 private const val FAVOURITES = "favourites"
 private val SearchWidth = 240.dp
 
@@ -65,7 +68,7 @@ fun GamesScreen(vm: MainViewModel) {
             scanning = scanning,
             hasAccess = hasAccess,
             hasRoot = settings.romRoot != null,
-            onOpenSettings = { vm.open(Screen.SETTINGS) },
+            onOpenSettings = { vm.open(Screen.GAMES_SETTINGS) },
         )
         return
     }
@@ -93,7 +96,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(if (index >= 0) saved else games.firstOrNull()?.path)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path)
     }
 
     Column(
@@ -102,7 +105,15 @@ fun GamesScreen(vm: MainViewModel) {
             .padding(start = 40.dp, end = 40.dp, top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle(stringResource(R.string.all_games), library.games.size)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScreenTitle(stringResource(R.string.all_games), library.games.size, Modifier.weight(1f))
+            GlassPill(
+                text = stringResource(R.string.games_settings),
+                icon = Icons.Filled.Settings,
+                modifier = memory.tag(GAMES_SETTINGS_PILL),
+                onClick = { vm.open(Screen.GAMES_SETTINGS) },
+            )
+        }
         FocusedGameLine(focusedGame, favourites)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterPills(filters, filterId, selectedPill, Modifier.weight(1f)) { id ->
@@ -230,7 +241,7 @@ private fun EmptyLibrary(
         Text(stringResource(R.string.no_games_title), color = DaijiColors.Text, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
         Text(message, color = DaijiColors.Muted, fontSize = 15.sp)
         PillButton(
-            text = stringResource(R.string.open_settings),
+            text = stringResource(R.string.games_settings),
             onClick = onOpenSettings,
             primary = true,
             modifier = Modifier
@@ -241,11 +252,12 @@ private fun EmptyLibrary(
 }
 
 @Composable
-fun ScreenTitle(title: String, count: Int) {
+fun ScreenTitle(title: String, count: Int, modifier: Modifier = Modifier) {
     Text(
         text = "$title  ·  ${"%,d".format(count)}",
         color = DaijiColors.Text,
         fontSize = 24.sp,
         fontWeight = FontWeight.Light,
+        modifier = modifier,
     )
 }

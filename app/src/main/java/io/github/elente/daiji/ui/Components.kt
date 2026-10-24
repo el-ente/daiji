@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +44,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -234,4 +237,96 @@ fun SearchField(
             }
         },
     )
+}
+
+@Composable
+fun SectionTitle(text: String) {
+    Text(
+        text = text.uppercase(),
+        color = DaijiColors.Muted,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.5.sp,
+        modifier = Modifier.padding(top = 14.dp, bottom = 2.dp),
+    )
+}
+
+/** A settings row: a title, then either a muted value or a chevron when the row opens another screen. */
+@Composable
+fun SettingRow(
+    title: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    value: String = "",
+    opensScreen: Boolean = false,
+) {
+    SettingRowFrame(onClick, modifier) {
+        RowTitle(title)
+        Text(
+            text = if (opensScreen) "›" else value,
+            color = if (opensScreen) DaijiColors.Text else DaijiColors.Muted,
+            fontSize = if (opensScreen) 20.sp else 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** A settings row that cycles through options: OK and Right go forward, Left goes back. */
+@Composable
+fun ChoiceRow(title: String, value: String, onStep: (Int) -> Unit, modifier: Modifier = Modifier) {
+    SettingRowFrame(onClick = { onStep(1) }, modifier = modifier.stepKeys(onStep)) {
+        RowTitle(title)
+        Text(
+            text = "‹  $value  ›",
+            color = DaijiColors.Text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(DaijiColors.Glass)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun SettingRowFrame(onClick: () -> Unit, modifier: Modifier, content: @Composable RowScope.() -> Unit) {
+    FocusCard(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        focusedContainer = DaijiColors.SurfaceHigh,
+        focusedScale = 1.01f,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun RowScope.RowTitle(title: String) {
+    Text(
+        text = title,
+        color = DaijiColors.Text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Medium,
+        modifier = Modifier.weight(1f),
+    )
+}
+
+private fun Modifier.stepKeys(onStep: (Int) -> Unit): Modifier = onPreviewKeyEvent { event ->
+    val step = when (event.key) {
+        Key.DirectionLeft -> -1
+        Key.DirectionRight -> 1
+        else -> return@onPreviewKeyEvent false
+    }
+    if (event.type == KeyEventType.KeyUp) onStep(step)
+    true
 }
