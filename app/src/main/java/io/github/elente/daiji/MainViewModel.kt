@@ -37,7 +37,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, SETUP }
+enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, GAMES_SETTINGS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -125,17 +125,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Where Back from Setup goes: Settings when opened from there, Home when Daiji offered it on its own. */
-    private var setupReturn = Screen.SETTINGS
-
     fun openSetup() {
         prefs.setupOffered = true
-        setupReturn = if (_screen.value == Screen.SETUP) setupReturn else _screen.value
-        _screen.value = Screen.SETUP
-    }
-
-    fun closeSetup() {
-        _screen.value = setupReturn
+        open(Screen.SETUP)
     }
 
     /** Installs RetroArch when missing; otherwise downloads cores, writes config and box art. */
@@ -169,11 +161,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun shouldOfferSetup(): Boolean =
         !prefs.setupOffered && retroArchPackage() == null && _library.value.systems.any { it.retroArchCore != null }
 
+    private val backStack = ArrayDeque<Screen>()
+
     fun open(screen: Screen) {
+        if (screen == _screen.value) return
+        backStack.addLast(_screen.value)
         _screen.value = screen
     }
 
+    /** Back pops one screen; the launcher is the bottom of the stack, so it never leaves Home. */
+    fun back() {
+        _screen.value = backStack.removeLastOrNull() ?: Screen.HOME
+    }
+
     fun goHome() {
+        backStack.clear()
         _screen.value = Screen.HOME
     }
 
@@ -216,10 +218,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun emulatorFor(system: GameSystem): Emulator = Emulators.resolve(system, _settings.value)
 
-    fun cycleEmulator(system: GameSystem) {
+    fun cycleEmulator(system: GameSystem, step: Int = 1) {
         val options = Emulators.optionsFor(system)
         val current = Emulators.resolve(system, _settings.value)
-        val next = options[(options.indexOf(current) + 1) % options.size]
+        val next = options[Math.floorMod(options.indexOf(current) + step, options.size)]
         prefs.setEmulator(system.id, next.id)
         _settings.value = _settings.value.copy(chosenEmulators = prefs.chosenEmulators())
     }
