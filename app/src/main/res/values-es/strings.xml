@@ -13,6 +13,7 @@
     <string name="section_apps">Apps</string>
     <string name="section_games">Juegos</string>
     <string name="hint_reroll">mantén OK para otro</string>
+    <string name="acclaimed">aclamado</string>
     <string name="hint_unfavourite">mantén OK para quitar de favoritos</string>
     <string name="all_games_entry">Todos los juegos  →</string>
 

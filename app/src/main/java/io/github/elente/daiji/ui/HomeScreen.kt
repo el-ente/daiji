@@ -117,7 +117,10 @@ fun HomeScreen(vm: MainViewModel) {
     val dock = shown.take(AppsRepository.DOCK_SIZE)
     var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
     var settingsMenu by remember { mutableStateOf(false) }
-    val shelf = remember(recents, favourites, library, randomPick) { gameShelf(library, recents, favourites, randomPick) }
+    val shelf = remember(recents, favourites, library, randomPick) {
+        val random = randomPick?.let { ShelfGame(it, ShelfKind.RANDOM, recents[it.path], vm.acclaimed.isAcclaimed(it)) }
+        gameShelf(library, recents, favourites, random)
+    }
     val focused = remember { mutableStateOf<HomeFocus?>(null) }
     val memory = rememberFocusMemory { vm.focusMemory[Screen.HOME] = it }
     // Apps load a moment after Home appears. Restoring earlier would land on a placeholder, and remember it.
@@ -519,12 +522,14 @@ private sealed interface HomeFocus {
     data class Game(val item: ShelfGame) : HomeFocus
 }
 
+private const val DETAIL_SEPARATOR = "  ·  "
+
 private enum class ShelfKind(val marker: String) { RECENT("▶"), FAVOURITE("★"), RANDOM("🎲") }
 
-private data class ShelfGame(val game: Game, val kind: ShelfKind, val lastPlayed: Long?)
+private data class ShelfGame(val game: Game, val kind: ShelfKind, val lastPlayed: Long?, val isAcclaimed: Boolean = false)
 
 /** Recently played first, then favourites not already shown, then the random pick. */
-private fun gameShelf(library: Library, recents: Map<String, Long>, favourites: Map<String, Long>, random: Game?): List<ShelfGame> {
+private fun gameShelf(library: Library, recents: Map<String, Long>, favourites: Map<String, Long>, random: ShelfGame?): List<ShelfGame> {
     val recent = recents.entries.sortedByDescending { it.value }
         .mapNotNull { (path, time) -> library.byPath[path]?.let { ShelfGame(it, ShelfKind.RECENT, time) } }
         .take(SHELF_RECENTS)
@@ -533,10 +538,12 @@ private fun gameShelf(library: Library, recents: Map<String, Long>, favourites: 
         .mapNotNull { (path, _) -> library.byPath[path]?.takeIf { path !in shown } }
         .take(SHELF_FAVOURITES)
         .map { ShelfGame(it, ShelfKind.FAVOURITE, recents[it.path]) }
-    return recent + favourite + listOfNotNull(random?.let { ShelfGame(it, ShelfKind.RANDOM, recents[it.path]) })
+    return recent + favourite + listOfNotNull(random)
 }
 
-private fun shelfKey(item: ShelfGame) = "game:${item.kind}:${item.game.path}"
+/** The random card keeps one key across rerolls, so focus memory still finds it after its game changes. */
+private fun shelfKey(item: ShelfGame) =
+    if (item.kind == ShelfKind.RANDOM) "game:${item.kind}" else "game:${item.kind}:${item.game.path}"
 
 /** The focused game, its system and when it was played; a quiet label while focus is elsewhere. */
 @Composable
@@ -569,11 +576,14 @@ private fun shelfDetail(item: ShelfGame): String {
         DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, SHORT_DATE).toString()
     }
     val hint = when (item.kind) {
-        ShelfKind.RANDOM -> stringResource(R.string.hint_reroll)
+        ShelfKind.RANDOM -> listOfNotNull(
+            stringResource(R.string.acclaimed).takeIf { item.isAcclaimed },
+            stringResource(R.string.hint_reroll),
+        ).joinToString(DETAIL_SEPARATOR)
         ShelfKind.FAVOURITE -> stringResource(R.string.hint_unfavourite)
         ShelfKind.RECENT -> null
     }
-    return listOfNotNull(system, played, hint).joinToString("  ·  ")
+    return listOfNotNull(system, played, hint).joinToString(DETAIL_SEPARATOR)
 }
 
 /** Games in the dock's band and at its tile size, ending with the way into the whole library. */
@@ -598,12 +608,15 @@ private fun GamesShelf(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         items.forEach { item ->
+            var isFocused by remember { mutableStateOf(false) }
+            // A reroll swaps the game under a tile that keeps focus, and no focus event fires for it.
+            LaunchedEffect(item, isFocused) { if (isFocused) focused.value = HomeFocus.Game(item) }
             GameTile(
                 game = item.game,
                 onClick = { onPlay(item.game) },
                 onLongClick = { if (item.kind == ShelfKind.RANDOM) onReroll() else onToggleFavourite(item.game) },
                 modifier = memory.tag(shelfKey(item))
-                    .onFocusChanged { if (it.isFocused) focused.value = HomeFocus.Game(item) }
+                    .onFocusChanged { isFocused = it.isFocused }
                     .size(DockTileWidth, DockTileHeight),
                 landscape = true,
                 titleSize = 13.sp,
