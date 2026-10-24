@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +63,7 @@ private val GlowRadius = 420.dp
 private val DockTileWidth = 160.dp
 private val DockTileHeight = 90.dp
 private val BandTileHeight = 118.dp
+private const val GRID_COLUMNS = 5
 private const val SHORT_DATE = DateUtils.FORMAT_ABBREV_ALL or DateUtils.FORMAT_NO_YEAR
 
 @Composable
@@ -75,13 +77,15 @@ fun HomeScreen(vm: MainViewModel) {
     val network by vm.network.collectAsStateWithLifecycle()
 
     val dock = remember(apps, pinned) { AppsRepository.dock(apps, pinned) }
+    val unpinned = remember(apps, dock) { apps - dock.toSet() }
+    var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
     val continueGame = remember(recents, library) {
         recents.entries.sortedByDescending { it.value }.firstNotNullOfOrNull { library.byPath[it.key] }
     }
     val favouriteGame = remember(favourites, library) {
         favourites.entries.sortedByDescending { it.value }.firstNotNullOfOrNull { library.byPath[it.key] }
     }
-    val focusedDockApp = remember { mutableStateOf<AppEntry?>(null) }
+    val focusedApp = remember { mutableStateOf<AppEntry?>(null) }
     val memory = rememberFocusMemory { vm.focusMemory[Screen.HOME] = it }
     // Apps load a moment after Home appears. Restoring earlier would land on a placeholder, and remember it.
     LaunchedEffect(apps.isNotEmpty()) {
@@ -89,7 +93,7 @@ fun HomeScreen(vm: MainViewModel) {
         memory.restore(vm.focusMemory[Screen.HOME], dock.firstOrNull()?.let(::dockKey), "entry:games")
     }
 
-    AmbientGlow(focusedDockApp)
+    AmbientGlow(focusedApp)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -98,15 +102,14 @@ fun HomeScreen(vm: MainViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Header(network = network, memory = memory, onOpenSettings = { vm.open(Screen.SETTINGS) })
-        DockTitle(focusedDockApp)
+        DockTitle(focusedApp)
         Dock(
             apps = dock,
             appsLoaded = apps.isNotEmpty(),
             memory = memory,
-            focusedApp = focusedDockApp,
+            focusedApp = focusedApp,
             onLaunch = vm::launch,
-            onTogglePin = vm::togglePin,
-            onOpenApps = { vm.open(Screen.ALL_APPS) },
+            onShowActions = { actionsFor = it },
         )
         GamesBand(
             continueGame = continueGame,
@@ -118,10 +121,22 @@ fun HomeScreen(vm: MainViewModel) {
             onToggleFavourite = vm::toggleFavourite,
             onReroll = vm::rerollRandom,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            EntryTile("All games", library.games.size, memory.tag("entry:games")) { vm.open(Screen.ALL_GAMES) }
-            EntryTile("All apps", apps.size, memory.tag("entry:apps")) { vm.open(Screen.ALL_APPS) }
-        }
+        EntryTile("All games", library.games.size, memory.tag("entry:games")) { vm.open(Screen.ALL_GAMES) }
+        AppsGrid(
+            apps = unpinned,
+            memory = memory,
+            focusedApp = focusedApp,
+            onLaunch = vm::launch,
+            onShowActions = { actionsFor = it },
+        )
+    }
+    actionsFor?.let { app ->
+        AppActionsDialog(
+            app = app,
+            isPinned = app in dock,
+            onTogglePin = { vm.togglePin(app) },
+            onDismiss = { actionsFor = null },
+        )
     }
 }
 
@@ -232,10 +247,8 @@ private fun Dock(
     memory: FocusMemory,
     focusedApp: MutableState<AppEntry?>,
     onLaunch: (AppEntry) -> Unit,
-    onTogglePin: (AppEntry) -> Unit,
-    onOpenApps: () -> Unit,
+    onShowActions: (AppEntry) -> Unit,
 ) {
-    var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -245,22 +258,69 @@ private fun Dock(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         if (appsLoaded && apps.isEmpty()) {
-            EntryTile("Pin apps from All apps", null, memory.tag("dock:empty"), onClick = onOpenApps)
-        }
-        apps.forEach { app ->
-            AppTile(
-                app = app,
-                onClick = { onLaunch(app) },
-                onLongClick = { actionsFor = app },
-                modifier = memory.tag(dockKey(app))
-                    .onFocusChanged { if (it.isFocused) focusedApp.value = app }
-                    .size(DockTileWidth, DockTileHeight),
+            Text(
+                "Hold OK on an app below to pin it here",
+                color = DaijiColors.Muted,
+                fontSize = 14.sp,
+                modifier = Modifier.height(DockTileHeight).padding(start = 8.dp, top = 34.dp),
             )
         }
+        apps.forEach { app ->
+            HomeAppTile(app, dockKey(app), memory, focusedApp, onLaunch, onShowActions)
+        }
     }
-    actionsFor?.let { app ->
-        AppActionsDialog(app = app, isPinned = true, onTogglePin = { onTogglePin(app) }, onDismiss = { actionsFor = null })
+}
+
+/** Every app not pinned to the dock, in rows the size of the dock's. Down from the games scrolls the page to them. */
+@Composable
+private fun AppsGrid(
+    apps: List<AppEntry>,
+    memory: FocusMemory,
+    focusedApp: MutableState<AppEntry?>,
+    onLaunch: (AppEntry) -> Unit,
+    onShowActions: (AppEntry) -> Unit,
+) {
+    if (apps.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("APPS", color = DaijiColors.Muted, fontSize = 11.sp, letterSpacing = 2.sp)
+        apps.chunked(GRID_COLUMNS).forEach { row ->
+            Row(modifier = Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                row.forEach { app ->
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        HomeAppTile(app, "app:${app.packageName}", memory, focusedApp, onLaunch, onShowActions)
+                        // The dock's large name is scrolled away down here, and many apps only have an icon.
+                        Text(
+                            text = app.label,
+                            color = DaijiColors.Muted,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.width(DockTileWidth),
+                        )
+                    }
+                }
+            }
+        }
     }
+}
+
+@Composable
+private fun HomeAppTile(
+    app: AppEntry,
+    key: String,
+    memory: FocusMemory,
+    focusedApp: MutableState<AppEntry?>,
+    onLaunch: (AppEntry) -> Unit,
+    onShowActions: (AppEntry) -> Unit,
+) {
+    AppTile(
+        app = app,
+        onClick = { onLaunch(app) },
+        onLongClick = { onShowActions(app) },
+        modifier = memory.tag(key)
+            .onFocusChanged { if (it.isFocused) focusedApp.value = app }
+            .size(DockTileWidth, DockTileHeight),
+    )
 }
 
 @Composable
