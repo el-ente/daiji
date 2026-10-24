@@ -99,8 +99,8 @@ fun HomeScreen(vm: MainViewModel) {
     val randomPick by vm.randomPick.collectAsStateWithLifecycle()
     val network by vm.network.collectAsStateWithLifecycle()
 
-    val dock = remember(apps, pinned) { AppsRepository.dock(apps, pinned) }
-    val unpinned = remember(apps, dock) { apps - dock.toSet() }
+    val home = remember(apps, pinned) { AppsRepository.home(apps, pinned) }
+    val dock = home.take(AppsRepository.DOCK_SIZE)
     var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
     var settingsMenu by remember { mutableStateOf(false) }
     val shelf = remember(recents, favourites, library, randomPick) { gameShelf(library, recents, favourites, randomPick) }
@@ -166,12 +166,14 @@ fun HomeScreen(vm: MainViewModel) {
                 }
             }
             AppsGrid(
-                apps = unpinned,
+                apps = home.drop(AppsRepository.DOCK_SIZE),
+                appCount = apps.size,
                 memory = memory,
                 focused = focused,
                 sections = sections,
                 onLaunch = vm::launch,
                 onShowActions = { actionsFor = it },
+                onOpenAll = { vm.open(Screen.ALL_APPS) },
             )
             // Room for the last section to scroll to the top like the others, instead of stopping half way.
             Spacer(Modifier.height(SCROLL_ROOM))
@@ -181,7 +183,7 @@ fun HomeScreen(vm: MainViewModel) {
     actionsFor?.let { app ->
         AppActionsDialog(
             app = app,
-            isPinned = app in dock,
+            isPinned = app in home,
             onTogglePin = { vm.togglePin(app) },
             onDismiss = { actionsFor = null },
         )
@@ -351,17 +353,24 @@ private fun Dock(
     }
 }
 
-/** Every app not pinned to the dock, smaller than the dock's so they read as secondary. Each row scrolls into place. */
+/**
+ * The pinned apps that don't fit in the dock, smaller than the dock's so they read as secondary, ending with the way
+ * into every app. Each row scrolls into place.
+ */
 @Composable
 private fun AppsGrid(
     apps: List<AppEntry>,
+    appCount: Int,
     memory: FocusMemory,
     focused: MutableState<HomeFocus?>,
     sections: SectionScroller,
     onLaunch: (AppEntry) -> Unit,
     onShowActions: (AppEntry) -> Unit,
+    onOpenAll: () -> Unit,
 ) {
-    apps.chunked(GRID_COLUMNS).forEachIndexed { index, row ->
+    // A full last row leaves no room for the All apps card, so it starts a row of its own.
+    val rows = apps.chunked(GRID_COLUMNS).let { if (apps.size % GRID_COLUMNS == 0) it + listOf(emptyList()) else it }
+    rows.forEachIndexed { index, row ->
         Column(sections.section("apps:$index"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (index == 0) SectionLabel(stringResource(R.string.section_apps))
             Row(modifier = Modifier.padding(horizontal = BAND_PADDING), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -369,15 +378,18 @@ private fun AppsGrid(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         HomeAppTile(app, "app:${app.packageName}", memory, focused, onLaunch, onShowActions, GridTileWidth, GridTileHeight)
                         // The dock's large name is scrolled away down here, and many apps only have an icon.
-                        Text(
-                            text = app.label,
-                            color = DaijiColors.Label,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.width(GridTileWidth),
-                        )
+                        AppLabel(app, Modifier.width(GridTileWidth))
                     }
+                }
+                if (index == rows.lastIndex) {
+                    EntryCard(
+                        text = stringResource(R.string.all_apps_entry),
+                        count = appCount,
+                        onClick = onOpenAll,
+                        modifier = memory.tag("entry:apps")
+                            .onFocusChanged { if (it.isFocused) focused.value = null }
+                            .size(GridTileWidth, GridTileHeight),
+                    )
                 }
             }
         }
@@ -519,18 +531,29 @@ private fun GamesShelf(
                 marker = item.kind.marker,
             )
         }
-        FocusCard(
+        EntryCard(
+            text = stringResource(R.string.all_games_entry),
+            count = gameCount,
             onClick = onOpenAll,
             modifier = memory.tag("entry:games")
                 .onFocusChanged { if (it.isFocused) focused.value = null }
                 .size(DockTileWidth, DockTileHeight),
-            container = DaijiColors.Accent.copy(alpha = 0.22f),
-            focusedContainer = DaijiColors.Accent.copy(alpha = 0.4f),
-        ) {
-            Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.all_games_entry), color = DaijiColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(NumberFormat.getIntegerInstance().format(gameCount), color = DaijiColors.Label, fontSize = 14.sp)
-            }
+        )
+    }
+}
+
+/** The way from a Home row into its whole list, with how many there are. */
+@Composable
+private fun EntryCard(text: String, count: Int, onClick: () -> Unit, modifier: Modifier) {
+    FocusCard(
+        onClick = onClick,
+        modifier = modifier,
+        container = DaijiColors.Accent.copy(alpha = 0.22f),
+        focusedContainer = DaijiColors.Accent.copy(alpha = 0.4f),
+    ) {
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text, color = DaijiColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text(NumberFormat.getIntegerInstance().format(count), color = DaijiColors.Label, fontSize = 14.sp)
         }
     }
 }

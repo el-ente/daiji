@@ -74,7 +74,7 @@ class Prefs(context: Context) {
         }
     }
 
-    /** Packages pinned to the Home dock, in order. Null until the user pins or unpins an app. */
+    /** Packages pinned to Home, in order. Null until the user pins or unpins an app. */
     fun pinnedApps(): List<String>? {
         val json = sp.getString(KEY_PINNED_APPS, null) ?: return null
         return try {

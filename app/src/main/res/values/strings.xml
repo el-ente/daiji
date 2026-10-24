@@ -11,7 +11,7 @@
     <string name="network_ethernet">Ethernet</string>
     <string name="network_offline">Offline</string>
     <string name="network_online">Online</string>
-    <string name="dock_empty">Hold OK on an app below to pin it here</string>
+    <string name="dock_empty">Hold OK on an app in All apps to pin it here</string>
     <string name="section_apps">Apps</string>
     <string name="section_games">Games</string>
     <string name="hint_reroll">hold OK for another</string>
@@ -20,6 +20,8 @@
 
     <!-- All games -->
     <string name="all_games">All games</string>
+    <string name="all_apps_entry">All apps  →</string>
+    <string name="all_apps">All apps</string>
     <string name="filter_all">All</string>
     <string name="filter_favourites">★ Favourites</string>
     <string name="favourite_hint">Hold OK on a game to make it a favourite</string>
@@ -101,7 +103,6 @@
     <string name="cannot_open_retroarch">Cannot open RetroArch</string>
     <string name="favourite_added">★ Added %1$s to favourites</string>
     <string name="favourite_removed">Removed %1$s from favourites</string>
-    <string name="dock_full">The dock holds %1$d apps. Unpin one first.</string>
     <string name="app_open_failed">Couldn\'t open %1$s</string>
     <string name="file_not_found">File not found: %1$s</string>
     <string name="emulator_missing">%1$s is not installed</string>

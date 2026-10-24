@@ -9,7 +9,7 @@
     <string name="network_ethernet">Ethernet</string>
     <string name="network_offline">Sin conexión</string>
     <string name="network_online">Conectado</string>
-    <string name="dock_empty">Mantén OK en una app de abajo para fijarla aquí</string>
+    <string name="dock_empty">Mantén OK en una app de Todas las apps para fijarla aquí</string>
     <string name="section_apps">Apps</string>
     <string name="section_games">Juegos</string>
     <string name="hint_reroll">mantén OK para otro</string>
@@ -18,6 +18,8 @@
 
     <!-- All games -->
     <string name="all_games">Todos los juegos</string>
+    <string name="all_apps_entry">Todas las apps  →</string>
+    <string name="all_apps">Todas las apps</string>
     <string name="filter_all">Todos</string>
     <string name="filter_favourites">★ Favoritos</string>
     <string name="favourite_hint">Mantén OK en un juego para marcarlo como favorito</string>
@@ -100,7 +102,6 @@
     <string name="cannot_open_retroarch">No se puede abrir RetroArch</string>
     <string name="favourite_added">★ %1$s se agregó a favoritos</string>
     <string name="favourite_removed">%1$s se quitó de favoritos</string>
-    <string name="dock_full">El dock admite %1$d apps. Quita una primero.</string>
     <string name="app_open_failed">No se pudo abrir %1$s</string>
     <string name="file_not_found">Archivo no encontrado: %1$s</string>
     <string name="emulator_missing">%1$s no está instalado</string>

@@ -35,7 +35,7 @@ import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
 
-/** Hold OK or Menu on an app: pin or unpin it on the Home dock, or open its info page. */
+/** Hold OK or Menu on an app: pin it to Home or unpin it, or open its info page. */
 @Composable
 fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
