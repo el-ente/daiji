@@ -49,7 +49,18 @@ object AppsRepository {
 
         collect(Intent.CATEGORY_LEANBACK_LAUNCHER, isTv = true)
         collect(Intent.CATEGORY_LAUNCHER, isTv = false)
+        homeScreens(context).forEach(result::remove)
         return result.values.sortedBy { it.label.lowercase() }
+    }
+
+    /**
+     * Other home screens: a previous launcher, and the Settings app's fallback home. Opening one from Daiji only
+     * shows a blank or duplicate screen, and Daiji's Settings pill already covers Android settings.
+     */
+    private fun homeScreens(context: Context): Set<String> {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        @Suppress("DEPRECATION")
+        return context.packageManager.queryIntentActivities(home, 0).map { it.activityInfo.packageName }.toSet()
     }
 
     /** Returns the TV banner when the app has one, else its icon. */
