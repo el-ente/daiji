@@ -46,7 +46,7 @@ fun SearchScreen(vm: MainViewModel) {
     val pinned by vm.pinnedApps.collectAsStateWithLifecycle()
     val games = remember(library, query) { library.games.matchingTitle(query) { it.title } }
     val foundApps = remember(apps, query) { apps.matchingTitle(query) { it.label } }
-    val dock = remember(apps, pinned) { AppsRepository.dock(apps, pinned).map { it.packageName }.toSet() }
+    val home = remember(apps, pinned) { AppsRepository.home(apps, pinned).map { it.packageName }.toSet() }
     var actionsFor by remember { mutableStateOf<AppEntry?>(null) }
 
     val memory = rememberFocusMemory { vm.focusMemory[Screen.SEARCH] = it }
@@ -102,7 +102,7 @@ fun SearchScreen(vm: MainViewModel) {
     actionsFor?.let { app ->
         AppActionsDialog(
             app = app,
-            isPinned = app.packageName in dock,
+            isPinned = app.packageName in home,
             onTogglePin = { vm.togglePin(app) },
             onDismiss = { actionsFor = null },
         )

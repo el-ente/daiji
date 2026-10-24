@@ -71,6 +71,18 @@ fun AppTile(app: AppEntry, onClick: () -> Unit, onLongClick: () -> Unit, modifie
     }
 }
 
+@Composable
+fun AppLabel(app: AppEntry, modifier: Modifier = Modifier) {
+    Text(
+        text = app.label,
+        color = DaijiColors.Label,
+        fontSize = 12.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
+}
+
 /**
  * A game's art, or for the many games without any, a tile coloured by its system with a large title and the
  * system's badge, readable from the sofa. Landscape tiles prefer a screenshot, portrait ones the box art.

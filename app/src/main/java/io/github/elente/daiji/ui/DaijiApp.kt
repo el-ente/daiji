@@ -38,6 +38,7 @@ fun DaijiApp(vm: MainViewModel) {
                 Screen.HOME -> HomeScreen(vm)
                 Screen.SEARCH -> SearchScreen(vm)
                 Screen.ALL_GAMES -> GamesScreen(vm)
+                Screen.ALL_APPS -> AppsScreen(vm)
                 Screen.SETTINGS -> SettingsScreen(vm)
                 Screen.GAMES_SETTINGS -> GamesSettingsScreen(vm)
                 Screen.REMOTE_BUTTONS -> RemoteButtonsScreen(vm)

@@ -38,7 +38,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
+enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -279,12 +279,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun togglePin(app: AppEntry) {
-        val dock = AppsRepository.dock(_apps.value, _pinnedApps.value).map { it.packageName }
-        val updated = when {
-            app.packageName in dock -> dock - app.packageName
-            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast(string(R.string.dock_full, AppsRepository.MAX_DOCK_SIZE))
-            else -> dock + app.packageName
-        }
+        val home = AppsRepository.home(_apps.value, _pinnedApps.value).map { it.packageName }
+        val updated = if (app.packageName in home) home - app.packageName else home + app.packageName
         prefs.setPinnedApps(updated)
         _pinnedApps.value = updated
     }

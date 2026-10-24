@@ -18,12 +18,12 @@ data class AppEntry(
 )
 
 object AppsRepository {
-    private const val DEFAULT_DOCK_SIZE = 4
-    const val MAX_DOCK_SIZE = 6
+    /** The first Home apps show large in the dock; the rest go in the grid below it. */
+    const val DOCK_SIZE = 6
 
-    /** The Home dock: the pinned apps still installed, or the first TV apps until the user pins one. */
-    fun dock(apps: List<AppEntry>, pinned: List<String>?): List<AppEntry> {
-        if (pinned == null) return apps.filter { it.isTv }.take(DEFAULT_DOCK_SIZE)
+    /** The apps pinned to Home and still installed, or the TV apps until the user pins one. */
+    fun home(apps: List<AppEntry>, pinned: List<String>?): List<AppEntry> {
+        if (pinned == null) return apps.filter { it.isTv }
         val byPackage = apps.associateBy { it.packageName }
         return pinned.mapNotNull { byPackage[it] }
     }
