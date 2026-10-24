@@ -54,9 +54,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** The system pill selected on All games; null is All. */
     var allGamesFilter: String? = null
 
-    /** Search text on All games; kept so a launched game returns to the same results. */
-    var allGamesQuery: String = ""
-
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
