@@ -9,15 +9,17 @@ data class AcclaimedEntry(val systemId: String, val name: String, val set: Strin
 
 /**
  * The bundled list of critically acclaimed games, matched to library files by title without region or revision tags.
- * Systems that share box art (Neo Geo and Arcade) share keys, so a game counts wherever its file was filed.
+ * Arcade systems share keys, since their files are all named after the same romsets, so a game counts wherever it was filed.
  */
 class AcclaimedGames(entries: List<AcclaimedEntry>) {
-    private val keys: Set<String> = entries.mapNotNullTo(HashSet()) { key(it.systemId, it.set ?: it.name) }
+    private val keys: Set<String> = entries.mapTo(HashSet()) { key(it.systemId, it.set ?: it.name) }
 
     fun isAcclaimed(game: Game): Boolean = key(game.systemId, File(game.path).nameWithoutExtension) in keys
 
     companion object {
         private const val ASSET = "acclaimed.json"
+        private const val ARCADE = "arcade"
+        private val arcadeSystems = setOf("arcade", "neogeo", "mame")
         val EMPTY = AcclaimedGames(emptyList())
 
         fun load(context: Context): AcclaimedGames = try {
@@ -37,10 +39,11 @@ class AcclaimedGames(entries: List<AcclaimedEntry>) {
             }.toList()
         }
 
-        private fun key(systemId: String, label: String): String? {
-            val boxArtSet = Systems.byId(systemId)?.retroArchName ?: return null
-            val title = RetroArchNames.shortName(label) ?: label
-            return "$boxArtSet:${title.lowercase()}"
+        /** The list spells titles the way box art is named, so file names get the same character swaps. */
+        private fun key(systemId: String, label: String): String {
+            val group = if (systemId in arcadeSystems) ARCADE else systemId
+            val title = RetroArchNames.thumbnail(RetroArchNames.shortName(label) ?: label)
+            return "$group:${title.lowercase()}"
         }
     }
 }
