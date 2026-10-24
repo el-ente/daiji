@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package io.github.elente.daiji.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -18,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,15 +27,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,16 +50,16 @@ import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
 import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
-import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
 import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
-private const val GAME_COLUMNS = 7
 private const val GAMES_SETTINGS_PILL = "pill:settings"
+private const val SEARCH_FIELD = "field:search"
 private const val FAVOURITES = "favourites"
 private val SearchWidth = 240.dp
+private val GridFade = 16.dp
 
 private data class Filter(val id: String?, val label: String)
 
@@ -87,7 +95,7 @@ fun GamesScreen(vm: MainViewModel) {
             else -> library.bySystem[filterId].orEmpty()
         }.matchingTitle(query) { it.title }
     }
-    val focusedGame = remember { mutableStateOf<Game?>(null) }
+    val cell = remember(filterId) { gridCell(Systems.byId(filterId.orEmpty())?.boxArtRatio) }
     val selectedPill = remember { FocusRequester() }
 
     val memory = rememberFocusMemory { vm.focusMemory[Screen.ALL_GAMES] = it }
@@ -102,7 +110,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_FIELD }, games.firstOrNull()?.path, SEARCH_FIELD)
     }
 
     Column(
@@ -111,47 +119,52 @@ fun GamesScreen(vm: MainViewModel) {
             .padding(start = 40.dp, end = 40.dp, top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ScreenTitle(stringResource(R.string.all_games), library.games.size, Modifier.weight(1f))
-            GlassPill(
-                text = stringResource(R.string.games_settings),
-                icon = Icons.Filled.Settings,
-                modifier = memory.tag(GAMES_SETTINGS_PILL),
-                onClick = { vm.open(Screen.GAMES_SETTINGS) },
-            )
-        }
-        FocusedGameLine(focusedGame, favourites)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            FilterPills(filters, filterId, selectedPill, Modifier.weight(1f)) { id ->
-                filterId = id
-                vm.allGamesFilter = id
-            }
+            ScreenTitle(stringResource(R.string.all_games), games.size, Modifier.weight(1f))
             SearchField(
                 query = query,
                 onQueryChange = {
                     query = it
                     vm.allGamesQuery = it
                 },
-                modifier = Modifier.width(SearchWidth),
+                placeholder = stringResource(R.string.search_games),
+                modifier = memory.tag(SEARCH_FIELD)
+                    .focusProperties { down = selectedPill }
+                    .width(SearchWidth),
             )
+            GlassPill(
+                text = stringResource(R.string.games_settings),
+                icon = Icons.Filled.Settings,
+                modifier = memory.tag(GAMES_SETTINGS_PILL).focusProperties { down = selectedPill },
+                onClick = { vm.open(Screen.GAMES_SETTINGS) },
+            )
+        }
+        FilterPills(filters, filterId, selectedPill, Modifier.fillMaxWidth()) { id ->
+            filterId = id
+            vm.allGamesFilter = id
         }
         LazyVerticalGrid(
             state = gridState,
-            columns = GridCells.Fixed(GAME_COLUMNS),
+            columns = GridCells.Fixed(cell.columns),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-            contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = 8.dp, bottom = 40.dp),
+            contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = GridFade, bottom = 40.dp),
+            modifier = Modifier.fadeTopEdge(GridFade),
         ) {
             itemsIndexed(games, key = { _, g -> g.path }, contentType = { _, _ -> "game" }) { index, game ->
+                var focused by remember { mutableStateOf(false) }
                 GameTile(
                     game = game,
                     onClick = { vm.launch(game) },
                     onLongClick = { vm.toggleFavourite(game) },
+                    marker = if (game.path in favourites) "★" else null,
+                    showCaption = focused,
+                    artScale = ContentScale.Fit,
                     modifier = memory.tag(game.path)
-                        .onFocusChanged { if (it.isFocused) focusedGame.value = game }
-                        .focusProperties { if (index < GAME_COLUMNS) up = selectedPill }
+                        .onFocusChanged { focused = it.isFocused }
+                        .focusProperties { if (index < cell.columns) up = selectedPill }
                         .fillMaxWidth()
-                        .aspectRatio(3f / 4f),
+                        .aspectRatio(cell.ratio),
                 )
             }
         }
@@ -167,21 +180,26 @@ private fun filters(library: Library, hasFavourites: Boolean, allLabel: String, 
         .forEach { add(Filter(it.id, it.shortName)) }
 }
 
-/** The focused game's name and system above the grid. Reads the focus state itself, so only this line recomposes. */
-@Composable
-private fun FocusedGameLine(focusedGame: MutableState<Game?>, favourites: Map<String, Long>) {
-    val game = focusedGame.value
-    val system = game?.let { Systems.byId(it.systemId) }
-    val star = if (game != null && game.path in favourites) "★  " else ""
-    Text(
-        text = game?.let { listOfNotNull(star + it.title, system?.name, it.info.year?.toString()).joinToString("  ·  ") }
-            ?: stringResource(R.string.favourite_hint),
-        color = DaijiColors.Muted,
-        fontSize = 15.sp,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-    )
+/** Each system's grid takes the shape of its box art, so covers show whole; All mixes shapes in portrait cells. */
+private data class GridCell(val ratio: Float, val columns: Int)
+
+private fun gridCell(boxArtRatio: Float?): GridCell = when {
+    boxArtRatio == null -> GridCell(3f / 4f, 7)
+    boxArtRatio > 1.2f -> GridCell(boxArtRatio, 5)
+    boxArtRatio > 0.9f -> GridCell(boxArtRatio, 6)
+    else -> GridCell(boxArtRatio, 7)
 }
+
+/** Rows scrolling under the filter pills fade out instead of being cut. */
+private fun Modifier.fadeTopEdge(height: Dp): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.verticalGradient(0f to Color.Transparent, height.toPx() to Color.Black, startY = 0f, endY = height.toPx()),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 
 /** Pills switch on OK, not on focus, so moving across them doesn't reload the grid each step. */
 @Composable
@@ -196,11 +214,14 @@ private fun FilterPills(
         modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        filters.forEach { filter ->
+        filters.forEachIndexed { index, filter ->
             val selected = filter.id == selectedId
+            val isLast = index == filters.lastIndex
             FocusCard(
                 onClick = { onSelect(filter.id) },
-                modifier = if (selected) Modifier.focusRequester(selectedRequester) else Modifier,
+                modifier = Modifier
+                    .then(if (selected) Modifier.focusRequester(selectedRequester) else Modifier)
+                    .focusProperties { if (isLast) right = FocusRequester.Cancel },
                 shape = RoundedCornerShape(50),
                 container = if (selected) DaijiColors.Glass else Color.Transparent,
                 focusedContainer = DaijiColors.SurfaceHigh,

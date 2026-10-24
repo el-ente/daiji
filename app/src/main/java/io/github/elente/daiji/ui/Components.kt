@@ -193,6 +193,8 @@ fun PillButton(
 
 /**
  * A glass pill holding a search box. The D-pad focuses it, OK opens the keyboard, Search on the keyboard closes it.
+ * The field stays read-only until OK: Android TV opens the keyboard for any focused editable field, and the keyboard
+ * then takes the D-pad, so passing over the pill would trap the user in it.
  * Up and Down always leave the pill, Left and Right only when there is no text for the cursor to move through,
  * because the text field would otherwise swallow them.
  */
@@ -207,16 +209,24 @@ fun SearchField(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     var focused by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     BasicTextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (!it.isFocused) editing = false
+            }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
-                    Key.DirectionCenter, Key.Enter -> { keyboard?.show(); true }
+                    Key.DirectionCenter, Key.Enter -> {
+                        editing = true
+                        keyboard?.show()
+                        true
+                    }
                     Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
                     Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
                     Key.DirectionLeft -> query.isEmpty() && focusManager.moveFocus(FocusDirection.Left)
@@ -228,11 +238,15 @@ fun SearchField(
             .background(if (focused) DaijiColors.SurfaceHigh else DaijiColors.Glass)
             .border(1.dp, if (focused) DaijiColors.Text else DaijiColors.GlassEdge, shape)
             .padding(horizontal = 16.dp, vertical = 8.dp),
+        readOnly = !editing,
         singleLine = true,
         textStyle = TextStyle(color = DaijiColors.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
         cursorBrush = SolidColor(DaijiColors.Accent),
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, showKeyboardOnFocus = false),
-        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+        keyboardActions = KeyboardActions(onSearch = {
+            keyboard?.hide()
+            editing = false
+        }),
         decorationBox = { field ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 icon?.let { Icon(it, contentDescription = null, tint = DaijiColors.Text, modifier = Modifier.size(18.dp)) }
