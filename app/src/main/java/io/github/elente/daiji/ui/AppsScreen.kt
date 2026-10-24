@@ -122,6 +122,7 @@ fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, 
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
+                .ignoreHeldSelect()
                 .width(360.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(DaijiColors.Surface)
