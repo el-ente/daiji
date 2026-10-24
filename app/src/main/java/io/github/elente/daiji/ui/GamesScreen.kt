@@ -92,7 +92,13 @@ fun GamesScreen(vm: MainViewModel) {
 
     val memory = rememberFocusMemory { vm.focusMemory[Screen.ALL_GAMES] = it }
     val gridState = rememberLazyGridState()
+    var hasRestoredFocus by remember { mutableStateOf(false) }
     LaunchedEffect(filterId) {
+        if (hasRestoredFocus) {
+            gridState.scrollToItem(0)
+            return@LaunchedEffect
+        }
+        hasRestoredFocus = true
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
