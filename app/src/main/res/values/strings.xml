@@ -24,7 +24,7 @@
     <string name="all_apps">All apps</string>
     <string name="filter_all">All</string>
     <string name="filter_favourites">★ Favourites</string>
-    <string name="favourite_hint">Hold OK on a game to make it a favourite</string>
+    <string name="search_games">Search</string>
     <string name="no_games_title">No games yet</string>
     <string name="no_games_scanning">Scanning your ROMs…</string>
     <string name="no_games_no_access">Daiji needs storage access to read your ROMs.</string>

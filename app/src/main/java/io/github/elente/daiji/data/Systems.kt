@@ -17,18 +17,24 @@ data class GameSystem(
     val standalone: List<String> = emptyList(),
     /** Folder name under RetroArch's `thumbnails/`, as libretro-thumbnails names it. */
     val retroArchName: String? = null,
+    /** Width over height of the system's box art, as libretro-thumbnails crops it. */
+    val boxArtRatio: Float = PORTRAIT_BOX,
 )
+
+private const val PORTRAIT_BOX = 5f / 7f
+private const val SQUARE_BOX = 1f
+private const val LANDSCAPE_BOX = 7f / 5f
 
 object Systems {
     private val archives = setOf("zip", "7z")
 
     val all: List<GameSystem> = listOf(
         GameSystem("nes", "Nintendo Entertainment System", "NES", setOf("nes", "famicom", "fc"), setOf("nes", "fds", "unf", "unif") + archives, "fceumm", retroArchName = "Nintendo - Nintendo Entertainment System"),
-        GameSystem("snes", "Super Nintendo", "SNES", setOf("snes", "sfc", "superfamicom", "supernintendo"), setOf("sfc", "smc", "fig", "swc", "bs") + archives, "snes9x", retroArchName = "Nintendo - Super Nintendo Entertainment System"),
-        GameSystem("n64", "Nintendo 64", "N64", setOf("n64", "nintendo64"), setOf("n64", "z64", "v64") + archives, "mupen64plus_next_gles3", retroArchName = "Nintendo - Nintendo 64"),
-        GameSystem("gb", "Game Boy", "GB", setOf("gb", "gameboy"), setOf("gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy"),
-        GameSystem("gbc", "Game Boy Color", "GBC", setOf("gbc", "gameboycolor"), setOf("gbc", "gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy Color"),
-        GameSystem("gba", "Game Boy Advance", "GBA", setOf("gba", "gameboyadvance"), setOf("gba") + archives, "mgba", retroArchName = "Nintendo - Game Boy Advance"),
+        GameSystem("snes", "Super Nintendo", "SNES", setOf("snes", "sfc", "superfamicom", "supernintendo"), setOf("sfc", "smc", "fig", "swc", "bs") + archives, "snes9x", retroArchName = "Nintendo - Super Nintendo Entertainment System", boxArtRatio = LANDSCAPE_BOX),
+        GameSystem("n64", "Nintendo 64", "N64", setOf("n64", "nintendo64"), setOf("n64", "z64", "v64") + archives, "mupen64plus_next_gles3", retroArchName = "Nintendo - Nintendo 64", boxArtRatio = LANDSCAPE_BOX),
+        GameSystem("gb", "Game Boy", "GB", setOf("gb", "gameboy"), setOf("gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy", boxArtRatio = SQUARE_BOX),
+        GameSystem("gbc", "Game Boy Color", "GBC", setOf("gbc", "gameboycolor"), setOf("gbc", "gb") + archives, "gambatte", retroArchName = "Nintendo - Game Boy Color", boxArtRatio = SQUARE_BOX),
+        GameSystem("gba", "Game Boy Advance", "GBA", setOf("gba", "gameboyadvance"), setOf("gba") + archives, "mgba", retroArchName = "Nintendo - Game Boy Advance", boxArtRatio = SQUARE_BOX),
         GameSystem("nds", "Nintendo DS", "NDS", setOf("nds", "ds"), setOf("nds") + archives, "melonds", retroArchName = "Nintendo - Nintendo DS"),
         GameSystem("gc", "GameCube", "GC", setOf("gc", "gamecube", "ngc"), setOf("iso", "gcm", "gcz", "rvz", "ciso"), null, Emulators.DOLPHIN, listOf(Emulators.DOLPHIN), retroArchName = "Nintendo - GameCube"),
         GameSystem("wii", "Wii", "Wii", setOf("wii"), setOf("iso", "wbfs", "rvz", "gcz", "wad"), null, Emulators.DOLPHIN, listOf(Emulators.DOLPHIN), retroArchName = "Nintendo - Wii"),
@@ -38,8 +44,8 @@ object Systems {
         GameSystem("sega32x", "Sega 32X", "32X", setOf("sega32x", "32x"), setOf("32x", "bin") + archives, "picodrive", retroArchName = "Sega - 32X"),
         GameSystem("gamegear", "Game Gear", "GG", setOf("gamegear", "gg"), setOf("gg") + archives, "genesis_plus_gx", retroArchName = "Sega - Game Gear"),
         GameSystem("saturn", "Sega Saturn", "SAT", setOf("saturn"), setOf("cue", "chd", "iso", "m3u"), "yabasanshiro", retroArchName = "Sega - Saturn"),
-        GameSystem("dreamcast", "Dreamcast", "DC", setOf("dreamcast", "dc"), setOf("gdi", "cdi", "chd", "m3u"), "flycast", retroArchName = "Sega - Dreamcast"),
-        GameSystem("psx", "PlayStation", "PS1", setOf("psx", "ps1", "playstation"), setOf("cue", "chd", "pbp", "m3u", "iso", "img", "ecm"), "pcsx_rearmed", Emulators.RETROARCH, listOf(Emulators.DUCKSTATION), retroArchName = "Sony - PlayStation"),
+        GameSystem("dreamcast", "Dreamcast", "DC", setOf("dreamcast", "dc"), setOf("gdi", "cdi", "chd", "m3u"), "flycast", retroArchName = "Sega - Dreamcast", boxArtRatio = SQUARE_BOX),
+        GameSystem("psx", "PlayStation", "PS1", setOf("psx", "ps1", "playstation"), setOf("cue", "chd", "pbp", "m3u", "iso", "img", "ecm"), "pcsx_rearmed", Emulators.RETROARCH, listOf(Emulators.DUCKSTATION), retroArchName = "Sony - PlayStation", boxArtRatio = SQUARE_BOX),
         GameSystem("ps2", "PlayStation 2", "PS2", setOf("ps2", "playstation2"), setOf("iso", "chd", "cso"), null, Emulators.NETHERSX2, listOf(Emulators.NETHERSX2), retroArchName = "Sony - PlayStation 2"),
         GameSystem("psp", "PlayStation Portable", "PSP", setOf("psp"), setOf("iso", "cso", "pbp", "chd"), "ppsspp", Emulators.PPSSPP, listOf(Emulators.PPSSPP), retroArchName = "Sony - PlayStation Portable"),
         GameSystem("pcengine", "PC Engine / TurboGrafx-16", "PCE", setOf("pcengine", "pce", "tg16", "turbografx16"), setOf("pce", "sgx", "cue", "chd") + archives, "mednafen_pce_fast", retroArchName = "NEC - PC Engine - TurboGrafx 16"),

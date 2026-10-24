@@ -96,6 +96,8 @@ fun GameTile(
     landscape: Boolean = false,
     titleSize: TextUnit = 15.sp,
     marker: String? = null,
+    showCaption: Boolean = landscape,
+    artScale: ContentScale = ContentScale.Crop,
 ) {
     FocusCard(
         onClick = onClick,
@@ -110,10 +112,10 @@ fun GameTile(
                 Image(
                     bitmap = art,
                     contentDescription = game.title,
-                    contentScale = ContentScale.Crop,
+                    contentScale = artScale,
                     modifier = Modifier.fillMaxSize(),
                 )
-                if (landscape) ArtCaption(game.title, titleSize, Modifier.align(Alignment.BottomStart))
+                if (showCaption) ArtCaption(game.title, titleSize, Modifier.align(Alignment.BottomStart))
             } else {
                 Systems.byId(game.systemId)?.let {
                     Badge(it.shortName, Modifier.align(Alignment.TopStart).padding(10.dp))
