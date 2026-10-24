@@ -63,6 +63,7 @@
     <string name="emulator_ask_android">Ask Android</string>
     <string name="launcher_settings">Launcher settings</string>
     <string name="remote_buttons">Remote buttons</string>
+    <string name="power_menu">Restart or power off</string>
     <string name="android_settings">Android settings</string>
     <string name="home_screen_hint">To make Daiji your home screen on Google TV, disable the stock launcher over ADB:</string>
     <string name="remote_key_service_description">Lets the remote buttons you set in Daiji\'s settings open apps, switch inputs or close all apps, from anywhere. Daiji reads only those buttons; every other key passes through.</string>

@@ -1,5 +1,6 @@
 package io.github.elente.daiji.ui
 
+import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -25,12 +26,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.material3.Text
 import io.github.elente.daiji.R
+import io.github.elente.daiji.remote.RemoteKeyService
 
 fun openAndroidSettings(context: Context) {
     runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-/** Hold OK or Menu on the Home gear: Android settings or Daiji's own. */
+/** Hold OK or Menu on the Home gear: Android settings, Daiji's own, or the power menu. */
 @Composable
 fun SettingsMenuDialog(onOpenLauncherSettings: () -> Unit, onOpenRemoteButtons: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -63,6 +65,12 @@ fun SettingsMenuDialog(onOpenLauncherSettings: () -> Unit, onOpenRemoteButtons: 
                 onOpenRemoteButtons()
                 onDismiss()
             })
+            RemoteKeyService.running?.let { service ->
+                PillButton(text = stringResource(R.string.power_menu), modifier = Modifier.fillMaxWidth(), onClick = {
+                    onDismiss()
+                    service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG)
+                })
+            }
         }
         LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     }
