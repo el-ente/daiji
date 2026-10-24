@@ -73,10 +73,11 @@ object RomScanner {
                 if (file.extension.lowercase() !in system.extensions) continue
                 if (file.name.lowercase() in listedInM3u) continue
                 val base = file.nameWithoutExtension
-                val thumbnailNames = retroArchThumbnailNames(playlistLabels[file.name.lowercase()], base)
+                val label = playlistLabels[file.name.lowercase()]
+                val thumbnailNames = retroArchThumbnailNames(label, base)
                 result += Game(
                     path = file.path,
-                    title = cleanTitle(base),
+                    title = cleanTitle(label ?: base),
                     systemId = system.id,
                     cover = covers[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchCovers[it] },
                     screenshot = screenshots[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchScreenshots[it] },
