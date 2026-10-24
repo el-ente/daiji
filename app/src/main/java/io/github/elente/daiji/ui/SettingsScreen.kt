@@ -1,7 +1,5 @@
 package io.github.elente.daiji.ui
 
-import android.content.Intent
-import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,11 +46,7 @@ fun SettingsScreen(vm: MainViewModel) {
         item {
             SettingRow(
                 title = stringResource(R.string.android_settings),
-                onClick = {
-                    runCatching {
-                        context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    }
-                },
+                onClick = { openAndroidSettings(context) },
                 modifier = memory.tag(ROW_ANDROID),
             )
         }
