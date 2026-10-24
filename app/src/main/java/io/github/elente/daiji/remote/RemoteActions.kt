@@ -35,6 +35,7 @@ object RemoteActions {
         "mute" to "Mute",
         "sleep" to "Sleep",
         "settings" to "Android settings",
+        "search" to "Search games (on Daiji's Home)",
     )
 
     /** Actions first, then the TV's inputs, then every app by name. */
@@ -65,6 +66,7 @@ object RemoteActions {
             "mute" -> service.getSystemService(AudioManager::class.java)
                 ?.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI)
             "settings" -> start(service, Intent(Settings.ACTION_SETTINGS))
+            "search" -> HomeShortcuts.search()
             else -> inputId(target)?.let { switchInput(service, it) } ?: openApp(service, target)
         }
     }
