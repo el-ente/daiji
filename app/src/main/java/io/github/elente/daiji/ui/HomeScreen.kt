@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 
 package io.github.elente.daiji.ui
 
@@ -37,9 +37,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -414,8 +417,13 @@ private fun Dock(
                 modifier = Modifier.height(DockTileHeight).padding(start = 8.dp, top = 34.dp),
             )
         }
-        apps.forEach { app ->
-            HomeAppTile(app, dockKey(app), moving, memory, focused, onLaunch, onShowActions)
+        // Focus stops at the dock's ends: the default search would jump to the header's pills, one OK away from leaving.
+        apps.forEachIndexed { index, app ->
+            val edgeStop = Modifier.focusProperties {
+                if (index == 0) left = FocusRequester.Cancel
+                if (index == apps.lastIndex) right = FocusRequester.Cancel
+            }
+            HomeAppTile(app, dockKey(app), moving, memory, focused, onLaunch, onShowActions, modifier = edgeStop)
         }
     }
 }
@@ -492,12 +500,13 @@ private fun HomeAppTile(
     onShowActions: (AppEntry) -> Unit,
     width: Dp = DockTileWidth,
     height: Dp = DockTileHeight,
+    modifier: Modifier = Modifier,
 ) {
     AppTile(
         app = app,
         onClick = { onLaunch(app) },
         onLongClick = { onShowActions(app) },
-        modifier = memory.tag(key)
+        modifier = modifier.then(memory.tag(key))
             .onFocusChanged { if (it.isFocused) focused.value = HomeFocus.App(app) }
             .alpha(if (moving == null || moving == app) 1f else MOVE_DIM_ALPHA)
             .size(width, height),
