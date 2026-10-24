@@ -51,8 +51,10 @@ object RomScanner {
             val screenshots = indexImages(File(esdeMedia, "${dir.name}/screenshots")) +
                 indexImages(File(dir, "media/screenshots"))
             val retroArchDir = system.retroArchName?.let { File(retroArch, "thumbnails/$it") }
+            val daijiDir = system.retroArchName?.let { File(DaijiDirs.thumbnails, it) }
             val playlistLabels = system.retroArchName?.let { playlistLabels(File(retroArch, "playlists/$it.lpl")) }.orEmpty()
-            val retroArchCovers = indexImages(retroArchDir?.resolve("Named_Boxarts"))
+            val retroArchCovers = indexImages(retroArchDir?.resolve("Named_Boxarts")) +
+                indexImages(daijiDir?.resolve("Named_Boxarts"))
             val retroArchScreenshots = indexImages(retroArchDir?.resolve("Named_Titles")) +
                 indexImages(retroArchDir?.resolve("Named_Snaps"))
 
@@ -108,15 +110,12 @@ object RomScanner {
         }
     }.getOrDefault(emptyMap())
 
-    /** RetroArch replaces these characters with `_` when it saves a thumbnail. */
-    private val retroArchReservedChars = Regex("""[&*/:`"<>?\\|]""")
-
     /**
      * Thumbnails are named after the playlist label, or after the ROM file when
      * RetroArch's "Use Filenames For Thumbnails" setting is on.
      */
     private fun retroArchThumbnailNames(label: String?, fileName: String): List<String> =
-        listOfNotNull(label, fileName).distinct().map { it.replace(retroArchReservedChars, "_") }
+        listOfNotNull(label, fileName).distinct().map(RetroArchNames::thumbnail)
 
     /** "Chrono Trigger (USA) [!]" becomes "Chrono Trigger". */
     fun cleanTitle(name: String): String {

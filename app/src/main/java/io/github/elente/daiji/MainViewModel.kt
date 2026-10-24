@@ -21,6 +21,8 @@ import io.github.elente.daiji.data.Systems
 import io.github.elente.daiji.launch.Emulator
 import io.github.elente.daiji.launch.Emulators
 import io.github.elente.daiji.launch.GameLauncher
+import io.github.elente.daiji.setup.RetroArchSetup
+import io.github.elente.daiji.setup.SetupState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +33,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Tab { GAMES, APPS, SETTINGS }
+enum class Tab { GAMES, APPS, SETTINGS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -62,6 +64,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _hasStorageAccess = MutableStateFlow(checkStorageAccess())
     val hasStorageAccess: StateFlow<Boolean> = _hasStorageAccess.asStateFlow()
 
+    private val retroArchSetup = RetroArchSetup(app, prefs)
+    val setup: StateFlow<SetupState> = retroArchSetup.state
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val cached = LibraryStore.read(cacheFile)
@@ -81,8 +86,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _apps.value = AppsRepository.load(getApplication())
             _settings.value = _settings.value.copy(installedEmulators = Emulators.installed(getApplication()))
             if (!hadAccess && _hasStorageAccess.value) scan()
+            refreshSetup()
         }
     }
+
+    fun openSetup() {
+        prefs.setupOffered = true
+        _tab.value = Tab.SETUP
+    }
+
+    fun closeSetup() {
+        _tab.value = Tab.SETTINGS
+    }
+
+    /** Installs RetroArch when missing; otherwise downloads cores, writes config and box art. */
+    fun runSetup() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pkg = retroArchPackage()
+            if (pkg == null) {
+                retroArchSetup.installRetroArch()
+            } else {
+                retroArchSetup.provision(_library.value, pkg)
+                scan()
+            }
+            refreshSetup()
+        }
+    }
+
+    fun openRetroArch() {
+        val pkg = retroArchPackage() ?: return toast("RetroArch is not installed")
+        runCatching { retroArchSetup.openRetroArch(pkg) }.onFailure { toast("Cannot open RetroArch") }
+    }
+
+    fun markCoresImported() = retroArchSetup.markCoresImported()
+
+    private fun retroArchPackage(): String? = _settings.value.installedEmulators[Emulators.RETROARCH]
+
+    private fun refreshSetup() {
+        retroArchSetup.refresh(retroArchPackage(), _library.value)
+        if (shouldOfferSetup()) openSetup()
+    }
+
+    private fun shouldOfferSetup(): Boolean =
+        !prefs.setupOffered && retroArchPackage() == null && _library.value.systems.any { it.retroArchCore != null }
 
     fun selectTab(tab: Tab) {
         _tab.value = tab
@@ -107,6 +153,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val games = RomScanner.scan(File(root))
                 _library.value = Library(games)
                 runCatching { LibraryStore.write(cacheFile, games) }
+                refreshSetup()
             } finally {
                 _scanning.value = false
             }

@@ -12,9 +12,11 @@ import android.os.Environment
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import io.github.elente.daiji.data.DaijiDirs
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.GameSystem
 import io.github.elente.daiji.data.SettingsSnapshot
+import io.github.elente.daiji.setup.RetroArchConfig
 import java.io.File
 
 data class Emulator(val id: String, val name: String, val packages: List<String>)
@@ -136,21 +138,33 @@ object GameLauncher {
     /** Same extras RetroArch's own frontend and other launchers pass. */
     private fun retroArch(context: Context, pkg: String, file: File, system: GameSystem): Intent? {
         val core = system.retroArchCore ?: return null
+        return retroArchIntent(context, pkg)
+            .putExtra("ROM", file.path)
+            .putExtra("LIBRETRO", RetroArchConfig.corePath(pkg, core))
+            .addFlags(CLEAR or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_HISTORY)
+    }
+
+    /** Opens RetroArch's main menu with Daiji's config. */
+    fun retroArchMenu(context: Context, pkg: String): Intent =
+        retroArchIntent(context, pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    private fun retroArchIntent(context: Context, pkg: String): Intent {
         val sdcard = Environment.getExternalStorageDirectory().path
         val external = "$sdcard/Android/data/$pkg/files"
         val apk = runCatching { context.packageManager.getApplicationInfo(pkg, 0).sourceDir }.getOrNull()
         return Intent(Intent.ACTION_MAIN)
             .setComponent(ComponentName(pkg, "com.retroarch.browser.retroactivity.RetroActivityFuture"))
-            .putExtra("ROM", file.path)
-            .putExtra("LIBRETRO", "/data/data/$pkg/cores/${core}_libretro_android.so")
-            .putExtra("CONFIGFILE", "$external/retroarch.cfg")
+            .putExtra("CONFIGFILE", configFile(external))
             .putExtra("IME", Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD))
             .putExtra("DATADIR", "/data/data/$pkg")
             .putExtra("SDCARD", sdcard)
             .putExtra("EXTERNAL", external)
             .apply { if (apk != null) putExtra("APK", apk) }
-            .addFlags(CLEAR or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_HISTORY)
     }
+
+    /** Daiji's config once setup has written it; RetroArch's own otherwise, so existing installs keep their settings. */
+    private fun configFile(retroArchExternal: String): String =
+        if (RetroArchConfig.isWritten()) DaijiDirs.retroArchConfig.path else "$retroArchExternal/retroarch.cfg"
 
     private fun askAndroid(context: Context, file: File): Intent {
         val view = Intent(Intent.ACTION_VIEW)
