@@ -8,8 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,6 +83,21 @@ private fun Modifier.menuKey(action: (() -> Unit)?): Modifier =
             true
         }
     }
+
+/**
+ * For a menu opened by holding OK: the release that ends the hold reaches the menu and would click its first option.
+ * Select keys are dropped until one is pressed inside the menu; the hold's auto-repeats don't count as a press.
+ */
+fun Modifier.ignoreHeldSelect(): Modifier = composed {
+    var pressedHere by remember { mutableStateOf(false) }
+    onPreviewKeyEvent { event ->
+        if (event.key !in SelectKeys) return@onPreviewKeyEvent false
+        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0) pressedHere = true
+        !pressedHere
+    }
+}
+
+private val SelectKeys = setOf(Key.DirectionCenter, Key.Enter, Key.NumPadEnter)
 
 /** A frosted pill for the Home header. Android 11 has no live blur, so the frost is a translucent fill and a thin edge. */
 @Composable
