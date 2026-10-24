@@ -8,3 +8,14 @@
 3. Verify the change compiles: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew -q :app:compileDebugKotlin`
    (Gradle 8.14 rejects newer JDKs; `local.properties` is gitignored, copy it from the main checkout).
 4. Commit, push the branch, and open the PR with `gh pr create` against the main branch.
+
+## Screenshots in PRs
+
+A PR that changes the UI carries a screenshot in its description.
+
+1. Capture from the emulator: `adb exec-out screencap -p > <screen>.png`.
+   A fixture library of zero-byte files with No-Intro names
+   (`Chrono Trigger (USA).sfc`) is enough: scanner, databases and thumbnails match by name.
+2. Push it to the orphan `pr-assets` branch under `<pr-branch>/<screen>.png`:
+   `git worktree add ../daiji-pr-assets pr-assets`. Never merge or rebase that branch.
+3. Embed it: `![<screen>](https://raw.githubusercontent.com/el-ente/daiji/pr-assets/<pr-branch>/<screen>.png)`.
