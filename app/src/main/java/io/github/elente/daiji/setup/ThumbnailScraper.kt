@@ -1,6 +1,7 @@
 package io.github.elente.daiji.setup
 
 import android.net.Uri
+import io.github.elente.daiji.data.AcclaimedEntry
 import io.github.elente.daiji.data.DaijiDirs
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.RetroArchNames
@@ -14,31 +15,41 @@ object ThumbnailScraper {
     private const val BASE_URL = "https://thumbnails.libretro.com"
     private const val MAX_CONSECUTIVE_FAILURES = 5
 
-    fun missingCovers(games: List<Game>): List<Game> =
-        games.filter { it.cover == null && Systems.byId(it.systemId)?.retroArchName != null }
+    /** A box art to fetch: the libretro-thumbnails system folder and the name to look it up by. */
+    data class CoverRequest(val systemName: String, val label: String)
+
+    fun missingCovers(games: List<Game>): List<CoverRequest> = games
+        .filter { it.cover == null }
+        .mapNotNull { game -> request(game.systemId, File(game.path).nameWithoutExtension) }
+
+    /** Covers for acclaimed games the user doesn't own, so the Acclaimed view shows their box art too. */
+    fun missingAcclaimedCovers(entries: List<AcclaimedEntry>): List<CoverRequest> = entries
+        .mapNotNull { request(it.systemId, it.name) }
+        .filterNot { DaijiDirs.boxArt(it.systemName, it.label).exists() }
 
     /** Returns how many covers were found. Gives up after repeated network failures. */
-    fun scrape(games: List<Game>, onProgress: (done: Int, total: Int) -> Unit): Int {
+    fun scrape(requests: List<CoverRequest>, onProgress: (done: Int, total: Int) -> Unit): Int {
         var found = 0
         var failures = 0
-        games.forEachIndexed { index, game ->
+        requests.forEachIndexed { index, request ->
             try {
-                if (scrapeCover(game)) found++
+                if (scrapeCover(request)) found++
                 failures = 0
             } catch (e: IOException) {
                 if (++failures >= MAX_CONSECUTIVE_FAILURES) throw e
             }
-            onProgress(index + 1, games.size)
+            onProgress(index + 1, requests.size)
         }
         return found
     }
 
-    private fun scrapeCover(game: Game): Boolean {
-        val systemName = Systems.byId(game.systemId)?.retroArchName ?: return false
-        val label = File(game.path).nameWithoutExtension
-        val dest = File(DaijiDirs.thumbnails, "$systemName/Named_Boxarts/${RetroArchNames.thumbnail(label)}.png")
+    private fun request(systemId: String, label: String): CoverRequest? =
+        Systems.byId(systemId)?.retroArchName?.let { CoverRequest(it, label) }
+
+    private fun scrapeCover(request: CoverRequest): Boolean {
+        val dest = DaijiDirs.boxArt(request.systemName, request.label)
         if (dest.exists()) return true
-        return candidates(label).any { Downloader.download(url(systemName, it), dest) }
+        return candidates(request.label).any { Downloader.download(url(request.systemName, it), dest) }
     }
 
     private fun candidates(label: String): List<String> =

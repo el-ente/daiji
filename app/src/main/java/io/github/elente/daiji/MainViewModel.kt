@@ -144,7 +144,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (pkg == null) {
                 retroArchSetup.installRetroArch()
             } else {
-                retroArchSetup.provision(_library.value, pkg)
+                retroArchSetup.provision(_library.value, pkg, acclaimed)
                 scan()
             }
             refreshSetup()

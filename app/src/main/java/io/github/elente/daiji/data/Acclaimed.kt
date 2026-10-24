@@ -11,10 +11,16 @@ data class AcclaimedEntry(val systemId: String, val name: String, val set: Strin
  * The bundled list of critically acclaimed games, matched to library files by title without region or revision tags.
  * Arcade systems share keys, since their files are all named after the same romsets, so a game counts wherever it was filed.
  */
-class AcclaimedGames(entries: List<AcclaimedEntry>) {
-    private val keys: Set<String> = entries.mapTo(HashSet()) { key(it.systemId, it.set ?: it.name) }
+class AcclaimedGames(private val entries: List<AcclaimedEntry>) {
+    private val keys: Set<String> = entries.mapTo(HashSet(), ::key)
 
-    fun isAcclaimed(game: Game): Boolean = key(game.systemId, File(game.path).nameWithoutExtension) in keys
+    fun isAcclaimed(game: Game): Boolean = key(game) in keys
+
+    /** Acclaimed games the library lacks, for the systems it has games for. */
+    fun missing(library: Library): List<AcclaimedEntry> {
+        val owned = library.games.mapTo(HashSet(), ::key)
+        return entries.filter { it.systemId in library.bySystem && key(it) !in owned }
+    }
 
     companion object {
         private const val ASSET = "acclaimed.json"
@@ -38,6 +44,10 @@ class AcclaimedGames(entries: List<AcclaimedEntry>) {
                 }
             }.toList()
         }
+
+        private fun key(game: Game): String = key(game.systemId, File(game.path).nameWithoutExtension)
+
+        private fun key(entry: AcclaimedEntry): String = key(entry.systemId, entry.set ?: entry.name)
 
         /** The list spells titles the way box art is named, so file names get the same character swaps. */
         private fun key(systemId: String, label: String): String {
