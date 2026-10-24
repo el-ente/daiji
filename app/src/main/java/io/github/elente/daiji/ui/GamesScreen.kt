@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package io.github.elente.daiji.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -25,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -53,6 +56,7 @@ import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
 private const val GAMES_SETTINGS_PILL = "pill:settings"
+private const val SEARCH_FIELD = "field:search"
 private const val FAVOURITES = "favourites"
 private val SearchWidth = 240.dp
 private val GridFade = 16.dp
@@ -106,7 +110,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path, SEARCH_FIELD)
     }
 
     Column(
@@ -124,12 +128,14 @@ fun GamesScreen(vm: MainViewModel) {
                     vm.allGamesQuery = it
                 },
                 placeholder = stringResource(R.string.search_games),
-                modifier = Modifier.width(SearchWidth),
+                modifier = memory.tag(SEARCH_FIELD)
+                    .focusProperties { down = selectedPill }
+                    .width(SearchWidth),
             )
             GlassPill(
                 text = stringResource(R.string.games_settings),
                 icon = Icons.Filled.Settings,
-                modifier = memory.tag(GAMES_SETTINGS_PILL),
+                modifier = memory.tag(GAMES_SETTINGS_PILL).focusProperties { down = selectedPill },
                 onClick = { vm.open(Screen.GAMES_SETTINGS) },
             )
         }
@@ -208,11 +214,14 @@ private fun FilterPills(
         modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        filters.forEach { filter ->
+        filters.forEachIndexed { index, filter ->
             val selected = filter.id == selectedId
+            val isLast = index == filters.lastIndex
             FocusCard(
                 onClick = { onSelect(filter.id) },
-                modifier = if (selected) Modifier.focusRequester(selectedRequester) else Modifier,
+                modifier = Modifier
+                    .then(if (selected) Modifier.focusRequester(selectedRequester) else Modifier)
+                    .focusProperties { if (isLast) right = FocusRequester.Cancel },
                 shape = RoundedCornerShape(50),
                 container = if (selected) DaijiColors.Glass else Color.Transparent,
                 focusedContainer = DaijiColors.SurfaceHigh,
