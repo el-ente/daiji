@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -52,13 +51,11 @@ import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
-import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
 private const val GAMES_SETTINGS_PILL = "pill:settings"
-private const val SEARCH_FIELD = "field:search"
+private const val SEARCH_PILL = "pill:search"
 private const val FAVOURITES = "favourites"
-private val SearchWidth = 240.dp
 private val GridFade = 16.dp
 
 private data class Filter(val id: String?, val label: String)
@@ -87,13 +84,12 @@ fun GamesScreen(vm: MainViewModel) {
         filters(library, hasFavourites = favourites.isNotEmpty(), allLabel, favouritesLabel)
     }
     var filterId by remember { mutableStateOf(vm.allGamesFilter?.takeIf { id -> filters.any { it.id == id } }) }
-    var query by remember { mutableStateOf(vm.allGamesQuery) }
-    val games = remember(library, favourites, filterId, query) {
+    val games = remember(library, favourites, filterId) {
         when (filterId) {
             null -> library.games
             FAVOURITES -> library.games.filter { it.path in favourites }
             else -> library.bySystem[filterId].orEmpty()
-        }.matchingTitle(query) { it.title }
+        }
     }
     val cell = remember(filterId) { gridCell(Systems.byId(filterId.orEmpty())?.boxArtRatio) }
     val selectedPill = remember { FocusRequester() }
@@ -110,7 +106,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_FIELD }, games.firstOrNull()?.path, SEARCH_FIELD)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_PILL }, games.firstOrNull()?.path)
     }
 
     Column(
@@ -121,16 +117,11 @@ fun GamesScreen(vm: MainViewModel) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             ScreenTitle(stringResource(R.string.all_games), games.size, Modifier.weight(1f))
-            SearchField(
-                query = query,
-                onQueryChange = {
-                    query = it
-                    vm.allGamesQuery = it
-                },
-                placeholder = stringResource(R.string.search_games),
-                modifier = memory.tag(SEARCH_FIELD)
-                    .focusProperties { down = selectedPill }
-                    .width(SearchWidth),
+            GlassPill(
+                text = stringResource(R.string.search_games),
+                icon = Glyphs.Search,
+                modifier = memory.tag(SEARCH_PILL).focusProperties { down = selectedPill },
+                onClick = { vm.open(Screen.SEARCH) },
             )
             GlassPill(
                 text = stringResource(R.string.games_settings),
@@ -139,7 +130,7 @@ fun GamesScreen(vm: MainViewModel) {
                 onClick = { vm.open(Screen.GAMES_SETTINGS) },
             )
         }
-        FilterPills(filters, filterId, selectedPill, Modifier.fillMaxWidth()) { id ->
+        FilterPills(filters, filterId, selectedPill, memory.requester(SEARCH_PILL), Modifier.fillMaxWidth()) { id ->
             filterId = id
             vm.allGamesFilter = id
         }
@@ -207,6 +198,7 @@ private fun FilterPills(
     filters: List<Filter>,
     selectedId: String?,
     selectedRequester: FocusRequester,
+    upRequester: FocusRequester,
     modifier: Modifier,
     onSelect: (String?) -> Unit,
 ) {
@@ -216,12 +208,17 @@ private fun FilterPills(
     ) {
         filters.forEachIndexed { index, filter ->
             val selected = filter.id == selectedId
+            val isFirst = index == 0
             val isLast = index == filters.lastIndex
             FocusCard(
                 onClick = { onSelect(filter.id) },
                 modifier = Modifier
                     .then(if (selected) Modifier.focusRequester(selectedRequester) else Modifier)
-                    .focusProperties { if (isLast) right = FocusRequester.Cancel },
+                    .focusProperties {
+                        up = upRequester
+                        if (isFirst) left = FocusRequester.Cancel
+                        if (isLast) right = FocusRequester.Cancel
+                    },
                 shape = RoundedCornerShape(50),
                 container = if (selected) DaijiColors.Glass else Color.Transparent,
                 focusedContainer = DaijiColors.SurfaceHigh,
