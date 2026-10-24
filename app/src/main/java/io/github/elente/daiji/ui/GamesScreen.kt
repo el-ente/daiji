@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -22,6 +23,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -29,6 +32,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,14 +40,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
+import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
+import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
 
 private const val GAME_COLUMNS = 7
+private const val GAMES_SETTINGS_PILL = "pill:settings"
 private const val FAVOURITES = "favourites"
+private val SearchWidth = 240.dp
 
 private data class Filter(val id: String?, val label: String)
 
@@ -60,19 +68,24 @@ fun GamesScreen(vm: MainViewModel) {
             scanning = scanning,
             hasAccess = hasAccess,
             hasRoot = settings.romRoot != null,
-            onOpenSettings = { vm.open(Screen.SETTINGS) },
+            onOpenSettings = { vm.open(Screen.GAMES_SETTINGS) },
         )
         return
     }
 
-    val filters = remember(library, favourites.isEmpty()) { filters(library, hasFavourites = favourites.isNotEmpty()) }
+    val allLabel = stringResource(R.string.filter_all)
+    val favouritesLabel = stringResource(R.string.filter_favourites)
+    val filters = remember(library, favourites.isEmpty(), allLabel, favouritesLabel) {
+        filters(library, hasFavourites = favourites.isNotEmpty(), allLabel, favouritesLabel)
+    }
     var filterId by remember { mutableStateOf(vm.allGamesFilter?.takeIf { id -> filters.any { it.id == id } }) }
-    val games = remember(library, favourites, filterId) {
+    var query by remember { mutableStateOf(vm.allGamesQuery) }
+    val games = remember(library, favourites, filterId, query) {
         when (filterId) {
             null -> library.games
             FAVOURITES -> library.games.filter { it.path in favourites }
             else -> library.bySystem[filterId].orEmpty()
-        }
+        }.matchingTitle(query) { it.title }
     }
     val focusedGame = remember { mutableStateOf<Game?>(null) }
     val selectedPill = remember { FocusRequester() }
@@ -83,7 +96,7 @@ fun GamesScreen(vm: MainViewModel) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(if (index >= 0) saved else games.firstOrNull()?.path)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL }, games.firstOrNull()?.path)
     }
 
     Column(
@@ -92,11 +105,29 @@ fun GamesScreen(vm: MainViewModel) {
             .padding(start = 40.dp, end = 40.dp, top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ScreenTitle("All games", library.games.size)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ScreenTitle(stringResource(R.string.all_games), library.games.size, Modifier.weight(1f))
+            GlassPill(
+                text = stringResource(R.string.games_settings),
+                icon = Icons.Filled.Settings,
+                modifier = memory.tag(GAMES_SETTINGS_PILL),
+                onClick = { vm.open(Screen.GAMES_SETTINGS) },
+            )
+        }
         FocusedGameLine(focusedGame, favourites)
-        FilterPills(filters, filterId, selectedPill) { id ->
-            filterId = id
-            vm.allGamesFilter = id
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            FilterPills(filters, filterId, selectedPill, Modifier.weight(1f)) { id ->
+                filterId = id
+                vm.allGamesFilter = id
+            }
+            SearchField(
+                query = query,
+                onQueryChange = {
+                    query = it
+                    vm.allGamesQuery = it
+                },
+                modifier = Modifier.width(SearchWidth),
+            )
         }
         LazyVerticalGrid(
             state = gridState,
@@ -122,9 +153,9 @@ fun GamesScreen(vm: MainViewModel) {
 }
 
 /** All first, then Favourites, then each system with more than one game; a lone game stays under All. */
-private fun filters(library: Library, hasFavourites: Boolean): List<Filter> = buildList {
-    add(Filter(null, "All"))
-    if (hasFavourites) add(Filter(FAVOURITES, "★ Favourites"))
+private fun filters(library: Library, hasFavourites: Boolean, allLabel: String, favouritesLabel: String): List<Filter> = buildList {
+    add(Filter(null, allLabel))
+    if (hasFavourites) add(Filter(FAVOURITES, favouritesLabel))
     library.systems
         .filter { library.bySystem[it.id].orEmpty().size > 1 }
         .forEach { add(Filter(it.id, it.shortName)) }
@@ -138,7 +169,7 @@ private fun FocusedGameLine(focusedGame: MutableState<Game?>, favourites: Map<St
     val star = if (game != null && game.path in favourites) "★  " else ""
     Text(
         text = game?.let { listOfNotNull(star + it.title, system?.name, it.info.year?.toString()).joinToString("  ·  ") }
-            ?: "Hold OK on a game to make it a favourite",
+            ?: stringResource(R.string.favourite_hint),
         color = DaijiColors.Muted,
         fontSize = 15.sp,
         maxLines = 1,
@@ -148,9 +179,15 @@ private fun FocusedGameLine(focusedGame: MutableState<Game?>, favourites: Map<St
 
 /** Pills switch on OK, not on focus, so moving across them doesn't reload the grid each step. */
 @Composable
-private fun FilterPills(filters: List<Filter>, selectedId: String?, selectedRequester: FocusRequester, onSelect: (String?) -> Unit) {
+private fun FilterPills(
+    filters: List<Filter>,
+    selectedId: String?,
+    selectedRequester: FocusRequester,
+    modifier: Modifier,
+    onSelect: (String?) -> Unit,
+) {
     Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         filters.forEach { filter ->
@@ -190,10 +227,10 @@ private fun EmptyLibrary(
         }
     }
     val message = when {
-        scanning -> "Scanning your ROMs…"
-        !hasAccess -> "Daiji needs storage access to read your ROMs."
-        !hasRoot -> "Put your ROMs in a folder like ROMs/snes or ROMs/psx, then pick that folder in Settings."
-        else -> "No games found. Each system needs its own subfolder, like ROMs/snes or ROMs/gba."
+        scanning -> stringResource(R.string.no_games_scanning)
+        !hasAccess -> stringResource(R.string.no_games_no_access)
+        !hasRoot -> stringResource(R.string.no_games_no_root)
+        else -> stringResource(R.string.no_games_none_found)
     }
     Column(
         modifier = Modifier
@@ -201,10 +238,10 @@ private fun EmptyLibrary(
             .padding(56.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
-        Text("No games yet", color = DaijiColors.Text, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+        Text(stringResource(R.string.no_games_title), color = DaijiColors.Text, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
         Text(message, color = DaijiColors.Muted, fontSize = 15.sp)
         PillButton(
-            text = "Open settings",
+            text = stringResource(R.string.games_settings),
             onClick = onOpenSettings,
             primary = true,
             modifier = Modifier
@@ -215,11 +252,12 @@ private fun EmptyLibrary(
 }
 
 @Composable
-fun ScreenTitle(title: String, count: Int) {
+fun ScreenTitle(title: String, count: Int, modifier: Modifier = Modifier) {
     Text(
         text = "$title  ·  ${"%,d".format(count)}",
         color = DaijiColors.Text,
         fontSize = 24.sp,
         fontWeight = FontWeight.Light,
+        modifier = modifier,
     )
 }

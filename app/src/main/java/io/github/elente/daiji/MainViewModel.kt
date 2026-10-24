@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.elente.daiji.data.AppEntry
@@ -37,7 +38,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Screen { HOME, ALL_GAMES, SETTINGS, SETUP }
+enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, GAMES_SETTINGS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -52,6 +53,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The system pill selected on All games; null is All. */
     var allGamesFilter: String? = null
+
+    /** Search text on All games; kept so a launched game returns to the same results. */
+    var allGamesQuery: String = ""
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
 
     private val _library = MutableStateFlow(Library.EMPTY)
     val library: StateFlow<Library> = _library.asStateFlow()
@@ -116,17 +127,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Where Back from Setup goes: Settings when opened from there, Home when Daiji offered it on its own. */
-    private var setupReturn = Screen.SETTINGS
-
     fun openSetup() {
         prefs.setupOffered = true
-        setupReturn = if (_screen.value == Screen.SETUP) setupReturn else _screen.value
-        _screen.value = Screen.SETUP
-    }
-
-    fun closeSetup() {
-        _screen.value = setupReturn
+        open(Screen.SETUP)
     }
 
     /** Installs RetroArch when missing; otherwise downloads cores, writes config and box art. */
@@ -144,8 +147,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openRetroArch() {
-        val pkg = retroArchPackage() ?: return toast("RetroArch is not installed")
-        runCatching { retroArchSetup.openRetroArch(pkg) }.onFailure { toast("Cannot open RetroArch") }
+        val pkg = retroArchPackage() ?: return toast(string(R.string.retroarch_not_installed))
+        runCatching { retroArchSetup.openRetroArch(pkg) }.onFailure { toast(string(R.string.cannot_open_retroarch)) }
     }
 
     fun markCoresImported() = retroArchSetup.markCoresImported()
@@ -160,11 +163,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun shouldOfferSetup(): Boolean =
         !prefs.setupOffered && retroArchPackage() == null && _library.value.systems.any { it.retroArchCore != null }
 
+    private val backStack = ArrayDeque<Screen>()
+
     fun open(screen: Screen) {
+        if (screen == _screen.value) return
+        backStack.addLast(_screen.value)
         _screen.value = screen
     }
 
+    /** Back pops one screen; the launcher is the bottom of the stack, so it never leaves Home. */
+    fun back() {
+        _screen.value = backStack.removeLastOrNull() ?: Screen.HOME
+    }
+
     fun goHome() {
+        backStack.clear()
         _screen.value = Screen.HOME
     }
 
@@ -207,10 +220,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun emulatorFor(system: GameSystem): Emulator = Emulators.resolve(system, _settings.value)
 
-    fun cycleEmulator(system: GameSystem) {
+    fun cycleEmulator(system: GameSystem, step: Int = 1) {
         val options = Emulators.optionsFor(system)
         val current = Emulators.resolve(system, _settings.value)
-        val next = options[(options.indexOf(current) + 1) % options.size]
+        val next = options[Math.floorMod(options.indexOf(current) + step, options.size)]
         prefs.setEmulator(system.id, next.id)
         _settings.value = _settings.value.copy(chosenEmulators = prefs.chosenEmulators())
     }
@@ -255,7 +268,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val adding = game.path !in _favourites.value
         prefs.toggleFavourite(game.path)
         _favourites.value = prefs.favourites()
-        toast(if (adding) "★ Added ${game.title} to favourites" else "Removed ${game.title} from favourites")
+        toast(string(if (adding) R.string.favourite_added else R.string.favourite_removed, game.title))
     }
 
     /** Picks another random game from the whole library, never the one already shown when there is another. */
@@ -269,7 +282,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val dock = AppsRepository.dock(_apps.value, _pinnedApps.value).map { it.packageName }
         val updated = when {
             app.packageName in dock -> dock - app.packageName
-            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast("The dock holds ${AppsRepository.MAX_DOCK_SIZE} apps. Unpin one first.")
+            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast(string(R.string.dock_full, AppsRepository.MAX_DOCK_SIZE))
             else -> dock + app.packageName
         }
         prefs.setPinnedApps(updated)
@@ -289,6 +302,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    private fun string(@StringRes id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
     private fun checkStorageAccess(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

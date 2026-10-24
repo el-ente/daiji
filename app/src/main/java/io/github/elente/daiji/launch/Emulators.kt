@@ -12,6 +12,7 @@ import android.os.Environment
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import io.github.elente.daiji.R
 import io.github.elente.daiji.data.DaijiDirs
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.GameSystem
@@ -86,18 +87,18 @@ object GameLauncher {
         settings: SettingsSnapshot,
     ): String? {
         val file = File(game.path)
-        if (!file.exists()) return "File not found: ${file.name}"
+        if (!file.exists()) return context.getString(R.string.file_not_found, file.name)
 
         return try {
             val intent = if (emulator.id == Emulators.ASK) {
                 askAndroid(context, file)
             } else {
                 val pkg = settings.installedEmulators[emulator.id]
-                    ?: return "${emulator.name} is not installed"
+                    ?: return context.getString(R.string.emulator_missing, emulator.name)
                 killIfRunning(context, pkg)
                 when (emulator.id) {
                     Emulators.RETROARCH -> retroArch(context, pkg, file, system)
-                        ?: return "RetroArch has no core set for ${system.name}"
+                        ?: return context.getString(R.string.no_core_set, system.name)
                     Emulators.PPSSPP -> Intent(Intent.ACTION_VIEW)
                         .setComponent(ComponentName(pkg, "org.ppsspp.ppsspp.PpssppActivity"))
                         .withContent(context, file)
@@ -116,11 +117,11 @@ object GameLauncher {
             context.startActivity(intent)
             null
         } catch (e: ActivityNotFoundException) {
-            "Couldn't start ${emulator.name}"
+            context.getString(R.string.emulator_start_failed, emulator.name)
         } catch (e: SecurityException) {
-            "${emulator.name} refused the launch"
+            context.getString(R.string.emulator_refused, emulator.name)
         } catch (e: IllegalArgumentException) {
-            "Can't share ${file.name} with ${emulator.name}"
+            context.getString(R.string.cannot_share_file, file.name, emulator.name)
         }
     }
 
@@ -170,7 +171,7 @@ object GameLauncher {
         val view = Intent(Intent.ACTION_VIEW)
             .setDataAndType(contentUri(context, file), mimeType(file))
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        return Intent.createChooser(view, "Open ${file.name} with").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return Intent.createChooser(view, context.getString(R.string.open_with, file.name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 
     private fun Intent.withContent(context: Context, file: File): Intent =

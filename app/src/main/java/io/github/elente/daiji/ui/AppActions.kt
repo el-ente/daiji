@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,6 +30,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
+import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
@@ -50,7 +52,7 @@ fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, 
         ) {
             Text(app.label, color = DaijiColors.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             PillButton(
-                text = if (isPinned) "Unpin from Home" else "Pin to Home",
+                text = stringResource(if (isPinned) R.string.unpin_from_home else R.string.pin_to_home),
                 primary = true,
                 modifier = Modifier.fillMaxWidth().focusRequester(first),
                 onClick = {
@@ -58,7 +60,7 @@ fun AppActionsDialog(app: AppEntry, isPinned: Boolean, onTogglePin: () -> Unit, 
                     onDismiss()
                 },
             )
-            PillButton(text = "App info", modifier = Modifier.fillMaxWidth(), onClick = {
+            PillButton(text = stringResource(R.string.app_info), modifier = Modifier.fillMaxWidth(), onClick = {
                 AppsRepository.openInfo(context, app)
                 onDismiss()
             })

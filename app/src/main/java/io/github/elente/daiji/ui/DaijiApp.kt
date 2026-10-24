@@ -19,8 +19,7 @@ private const val AMBIENT_RADIUS = 1600f
 fun DaijiApp(vm: MainViewModel) {
     val screen by vm.screen.collectAsStateWithLifecycle()
 
-    // The launcher is the bottom of the stack: Back never leaves it, it only returns Home.
-    BackHandler(enabled = true) { vm.goHome() }
+    BackHandler(enabled = true) { vm.back() }
 
     DaijiTheme {
         Box(
@@ -37,8 +36,10 @@ fun DaijiApp(vm: MainViewModel) {
         ) {
             when (screen) {
                 Screen.HOME -> HomeScreen(vm)
+                Screen.SEARCH -> SearchScreen(vm)
                 Screen.ALL_GAMES -> GamesScreen(vm)
                 Screen.SETTINGS -> SettingsScreen(vm)
+                Screen.GAMES_SETTINGS -> GamesSettingsScreen(vm)
                 Screen.SETUP -> SetupScreen(vm)
             }
         }

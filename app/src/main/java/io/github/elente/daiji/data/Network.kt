@@ -7,6 +7,7 @@ import android.net.wifi.WifiManager
 
 object Network {
     private const val UNKNOWN_SSID = "<unknown ssid>"
+    const val WIFI = "Wi-Fi"
     const val ETHERNET = "Ethernet"
     const val OFFLINE = "Offline"
     const val ONLINE = "Online"
@@ -20,7 +21,7 @@ object Network {
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return OFFLINE
         return when {
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ETHERNET
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> wifiName(context) ?: "Wi-Fi"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> wifiName(context) ?: WIFI
             else -> ONLINE
         }
     }

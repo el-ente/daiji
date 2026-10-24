@@ -3,6 +3,7 @@
 package io.github.elente.daiji.ui
 
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import android.provider.Settings
 import android.text.format.DateFormat
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Settings
 import io.github.elente.daiji.data.Network
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -55,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
+import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
@@ -121,7 +124,12 @@ fun HomeScreen(vm: MainViewModel) {
                 .padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Header(network = network, memory = memory, onOpenSettings = { vm.open(Screen.SETTINGS) })
+            Header(
+                network = network,
+                memory = memory,
+                onOpenSearch = { vm.open(Screen.SEARCH) },
+                onOpenSettings = { vm.open(Screen.SETTINGS) },
+            )
             Column(sections.section(SectionScroller.TOP), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 DockTitle(focused)
                 Dock(
@@ -174,21 +182,31 @@ fun HomeScreen(vm: MainViewModel) {
 private fun dockKey(app: AppEntry) = "dock:${app.packageName}"
 
 @Composable
-private fun Header(network: String, memory: FocusMemory, onOpenSettings: () -> Unit) {
+private fun Header(network: String, memory: FocusMemory, onOpenSearch: () -> Unit, onOpenSettings: () -> Unit) {
     val context = LocalContext.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Clock(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassPill(text = "Search", icon = Glyphs.Search, modifier = memory.tag("pill:search"), onClick = onOpenSearch)
             if (network.isNotEmpty()) {
-                GlassPill(text = network, icon = networkIcon(network), modifier = memory.tag("pill:network"), onClick = {
+                GlassPill(text = networkLabel(network), icon = networkIcon(network), modifier = memory.tag("pill:network"), onClick = {
                     runCatching {
                         context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
                 })
             }
-            GlassPill(text = "Settings", icon = Icons.Filled.Settings, modifier = memory.tag("pill:settings"), onClick = onOpenSettings)
+            GlassPill(text = stringResource(R.string.settings), icon = Icons.Filled.Settings, modifier = memory.tag("pill:settings"), onClick = onOpenSettings)
         }
     }
+}
+
+@Composable
+private fun networkLabel(label: String): String = when (label) {
+    Network.WIFI -> stringResource(R.string.network_wifi)
+    Network.ETHERNET -> stringResource(R.string.network_ethernet)
+    Network.OFFLINE -> stringResource(R.string.network_offline)
+    Network.ONLINE -> stringResource(R.string.network_online)
+    else -> label
 }
 
 /** The Wi-Fi glyph for a Wi-Fi network; Ethernet and Offline read clearly enough as words. */
@@ -210,7 +228,7 @@ private fun Clock(modifier: Modifier) {
     val time = SimpleDateFormat(if (is24h) "H:mm" else "h:mm", Locale.getDefault()).format(Date(now))
     val date = SimpleDateFormat("EEEE d MMMM", Locale.getDefault()).format(Date(now))
     Column(modifier) {
-        Text(greeting(now).uppercase(), color = DaijiColors.Label, fontSize = 14.sp, letterSpacing = 3.sp)
+        Text(stringResource(greeting(now)).uppercase(), color = DaijiColors.Label, fontSize = 14.sp, letterSpacing = 3.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(
                 time,
@@ -231,10 +249,11 @@ private fun Clock(modifier: Modifier) {
     }
 }
 
-private fun greeting(now: Long): String = when (Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)) {
-    in 5..11 -> "Good morning"
-    in 12..19 -> "Good afternoon"
-    else -> "Good evening"
+@StringRes
+private fun greeting(now: Long): Int = when (Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)) {
+    in 5..11 -> R.string.greeting_morning
+    in 12..19 -> R.string.greeting_afternoon
+    else -> R.string.greeting_evening
 }
 
 /**
@@ -298,7 +317,7 @@ private fun Dock(
     ) {
         if (appsLoaded && apps.isEmpty()) {
             Text(
-                "Hold OK on an app below to pin it here",
+                stringResource(R.string.dock_empty),
                 color = DaijiColors.Muted,
                 fontSize = 14.sp,
                 modifier = Modifier.height(DockTileHeight).padding(start = 8.dp, top = 34.dp),
@@ -322,7 +341,7 @@ private fun AppsGrid(
 ) {
     apps.chunked(GRID_COLUMNS).forEachIndexed { index, row ->
         Column(sections.section("apps:$index"), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (index == 0) SectionLabel("Apps")
+            if (index == 0) SectionLabel(stringResource(R.string.section_apps))
             Row(modifier = Modifier.padding(horizontal = BAND_PADDING), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { app ->
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -412,7 +431,7 @@ private fun ShelfTitle(focused: MutableState<HomeFocus?>) {
     val item = (focused.value as? HomeFocus.Game)?.item
     Box(Modifier.fillMaxWidth().height(28.dp), contentAlignment = Alignment.BottomStart) {
         if (item == null) {
-            SectionLabel("Games")
+            SectionLabel(stringResource(R.string.section_games))
             return@Box
         }
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -430,14 +449,15 @@ private fun ShelfTitle(focused: MutableState<HomeFocus?>) {
     }
 }
 
+@Composable
 private fun shelfDetail(item: ShelfGame): String {
     val system = Systems.byId(item.game.systemId)?.shortName
     val played = item.lastPlayed?.let {
         DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS, SHORT_DATE).toString()
     }
     val hint = when (item.kind) {
-        ShelfKind.RANDOM -> "hold OK for another"
-        ShelfKind.FAVOURITE -> "hold OK to unfavourite"
+        ShelfKind.RANDOM -> stringResource(R.string.hint_reroll)
+        ShelfKind.FAVOURITE -> stringResource(R.string.hint_unfavourite)
         ShelfKind.RECENT -> null
     }
     return listOfNotNull(system, played, hint).joinToString("  ·  ")
@@ -486,7 +506,7 @@ private fun GamesShelf(
             focusedContainer = DaijiColors.Accent.copy(alpha = 0.4f),
         ) {
             Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("All games  →", color = DaijiColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.all_games_entry), color = DaijiColors.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text(NumberFormat.getIntegerInstance().format(gameCount), color = DaijiColors.Label, fontSize = 14.sp)
             }
         }
