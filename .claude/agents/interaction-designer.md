@@ -1,7 +1,7 @@
 ---
 name: interaction-designer
 description: Use this agent to design or review how a screen looks and behaves — layout, visual hierarchy, focus and navigation, states (empty, loading, error), and how screens connect. Expert in 10-foot TV UI and D-pad/remote navigation, also covers touch and desktop. Trigger on things like "design this screen", "where should X go", "how should navigation work here", "review this layout", "give me the focus map for X", "is this screen clear". Do NOT use it to decide whether a feature is worth building (that is product-manager), or for implementation.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 model: inherit
 ---
 
