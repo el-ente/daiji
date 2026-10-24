@@ -1,6 +1,7 @@
 package io.github.elente.daiji.data
 
 import android.os.Environment
+import org.json.JSONObject
 import java.io.File
 
 /**
@@ -35,7 +36,7 @@ object RomScanner {
 
     fun scan(root: File): List<Game> {
         val esdeMedia = File(Environment.getExternalStorageDirectory(), "ES-DE/downloaded_media")
-        val retroArchThumbnails = File(Environment.getExternalStorageDirectory(), "RetroArch/thumbnails")
+        val retroArch = File(Environment.getExternalStorageDirectory(), "RetroArch")
         val result = ArrayList<Game>()
         val dirs = root.listFiles() ?: return emptyList()
 
@@ -49,34 +50,36 @@ object RomScanner {
                 indexImages(File(dir, "media/covers"))
             val screenshots = indexImages(File(esdeMedia, "${dir.name}/screenshots")) +
                 indexImages(File(dir, "media/screenshots"))
-            val retroArchDir = system.retroArchName?.let { File(retroArchThumbnails, it) }
+            val retroArchDir = system.retroArchName?.let { File(retroArch, "thumbnails/$it") }
+            val playlistLabels = system.retroArchName?.let { playlistLabels(File(retroArch, "playlists/$it.lpl")) }.orEmpty()
             val retroArchCovers = indexImages(retroArchDir?.resolve("Named_Boxarts"))
             val retroArchScreenshots = indexImages(retroArchDir?.resolve("Named_Titles")) +
                 indexImages(retroArchDir?.resolve("Named_Snaps"))
 
             // Multi-disc games: hide the discs an .m3u playlist already lists.
-            val listedInPlaylist = HashSet<String>()
+            val listedInM3u = HashSet<String>()
             for (file in files) {
                 if (!file.extension.equals("m3u", ignoreCase = true)) continue
                 runCatching {
                     file.readLines()
                         .map { it.trim() }
                         .filter { it.isNotEmpty() && !it.startsWith("#") }
-                        .forEach { listedInPlaylist += File(it).name.lowercase() }
+                        .forEach { listedInM3u += File(it).name.lowercase() }
                 }
             }
 
             for (file in files) {
                 if (!file.isFile || file.name.startsWith(".")) continue
                 if (file.extension.lowercase() !in system.extensions) continue
-                if (file.name.lowercase() in listedInPlaylist) continue
+                if (file.name.lowercase() in listedInM3u) continue
                 val base = file.nameWithoutExtension
+                val thumbnailNames = retroArchThumbnailNames(playlistLabels[file.name.lowercase()], base)
                 result += Game(
                     path = file.path,
                     title = cleanTitle(base),
                     systemId = system.id,
-                    cover = covers[base] ?: retroArchCovers[retroArchThumbnailName(base)],
-                    screenshot = screenshots[base] ?: retroArchScreenshots[retroArchThumbnailName(base)],
+                    cover = covers[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchCovers[it] },
+                    screenshot = screenshots[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchScreenshots[it] },
                 )
             }
         }
@@ -92,10 +95,28 @@ object RomScanner {
             ?.associate { it.nameWithoutExtension to it.path }
             ?: emptyMap()
 
-    /** RetroArch replaces these characters with `_` when it saves a thumbnail. */
-    private val retroArchReservedChars = Regex("""[&*/:`<>?\\|]""")
+    /** ROM file name (lowercase) to playlist label, read from a RetroArch `.lpl` JSON playlist. */
+    private fun playlistLabels(playlist: File): Map<String, String> = runCatching {
+        val items = JSONObject(playlist.readText()).getJSONArray("items")
+        buildMap {
+            for (i in 0 until items.length()) {
+                val item = items.getJSONObject(i)
+                val label = item.optString("label")
+                if (label.isBlank()) continue
+                put(File(item.optString("path").substringBefore('#')).name.lowercase(), label)
+            }
+        }
+    }.getOrDefault(emptyMap())
 
-    private fun retroArchThumbnailName(label: String): String = label.replace(retroArchReservedChars, "_")
+    /** RetroArch replaces these characters with `_` when it saves a thumbnail. */
+    private val retroArchReservedChars = Regex("""[&*/:`"<>?\\|]""")
+
+    /**
+     * Thumbnails are named after the playlist label, or after the ROM file when
+     * RetroArch's "Use Filenames For Thumbnails" setting is on.
+     */
+    private fun retroArchThumbnailNames(label: String?, fileName: String): List<String> =
+        listOfNotNull(label, fileName).distinct().map { it.replace(retroArchReservedChars, "_") }
 
     /** "Chrono Trigger (USA) [!]" becomes "Chrono Trigger". */
     fun cleanTitle(name: String): String {
