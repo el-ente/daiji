@@ -13,6 +13,7 @@ import io.github.elente.daiji.data.AppsRepository
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.GameSystem
 import io.github.elente.daiji.data.Library
+import io.github.elente.daiji.data.Network
 import io.github.elente.daiji.data.PlayStats
 import io.github.elente.daiji.data.LibraryStore
 import io.github.elente.daiji.data.Prefs
@@ -35,15 +36,21 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Tab { GAMES, APPS, SETTINGS, SETUP }
+enum class Screen { HOME, ALL_GAMES, ALL_APPS, SETTINGS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
     private val cacheFile = File(app.filesDir, "library.json")
     private val scanLock = Mutex()
 
-    private val _tab = MutableStateFlow(Tab.GAMES)
-    val tab: StateFlow<Tab> = _tab.asStateFlow()
+    private val _screen = MutableStateFlow(Screen.HOME)
+    val screen: StateFlow<Screen> = _screen.asStateFlow()
+
+    /** The element each screen last had focused, so Back and Home land where the user left it. */
+    val focusMemory = mutableMapOf<Screen, String>()
+
+    /** The system pill selected on All games; null is All. */
+    var allGamesFilter: String? = null
 
     private val _library = MutableStateFlow(Library.EMPTY)
     val library: StateFlow<Library> = _library.asStateFlow()
@@ -61,8 +68,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _playtime = MutableStateFlow<Map<String, Long>>(emptyMap())
     val playtime: StateFlow<Map<String, Long>> = _playtime.asStateFlow()
 
+    /** Favourite game path to the time it was added. */
     private val _favourites = MutableStateFlow(prefs.favourites())
-    val favourites: StateFlow<Set<String>> = _favourites.asStateFlow()
+    val favourites: StateFlow<Map<String, Long>> = _favourites.asStateFlow()
+
+    private val _pinnedApps = MutableStateFlow(prefs.pinnedApps())
+    val pinnedApps: StateFlow<List<String>?> = _pinnedApps.asStateFlow()
+
+    private val _randomPick = MutableStateFlow<Game?>(null)
+    val randomPick: StateFlow<Game?> = _randomPick.asStateFlow()
+
+    private val _network = MutableStateFlow("")
+    val network: StateFlow<String> = _network.asStateFlow()
 
     private val _settings = MutableStateFlow(SettingsSnapshot(prefs.romRoot, prefs.chosenEmulators(), emptyMap()))
     val settings: StateFlow<SettingsSnapshot> = _settings.asStateFlow()
@@ -76,7 +93,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val cached = LibraryStore.read(cacheFile)
-            if (cached.isNotEmpty()) _library.value = Library(cached)
+            if (cached.isNotEmpty()) setLibrary(Library(cached))
             if (prefs.romRoot == null) {
                 RomScanner.candidateRoots().firstOrNull()?.let { setRootInternal(it.path) }
             }
@@ -89,6 +106,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _hasStorageAccess.value = checkStorageAccess()
         viewModelScope.launch(Dispatchers.IO) {
             refreshPlayStats()
+            _network.value = Network.label(getApplication())
             _apps.value = AppsRepository.load(getApplication())
             _settings.value = _settings.value.copy(installedEmulators = Emulators.installed(getApplication()))
             if (!hadAccess && _hasStorageAccess.value) scan()
@@ -96,13 +114,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Where Back from Setup goes: Settings when opened from there, Home when Daiji offered it on its own. */
+    private var setupReturn = Screen.SETTINGS
+
     fun openSetup() {
         prefs.setupOffered = true
-        _tab.value = Tab.SETUP
+        setupReturn = if (_screen.value == Screen.SETUP) setupReturn else _screen.value
+        _screen.value = Screen.SETUP
     }
 
     fun closeSetup() {
-        _tab.value = Tab.SETTINGS
+        _screen.value = setupReturn
     }
 
     /** Installs RetroArch when missing; otherwise downloads cores, writes config and box art. */
@@ -136,12 +158,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun shouldOfferSetup(): Boolean =
         !prefs.setupOffered && retroArchPackage() == null && _library.value.systems.any { it.retroArchCore != null }
 
-    fun selectTab(tab: Tab) {
-        _tab.value = tab
+    fun open(screen: Screen) {
+        _screen.value = screen
     }
 
     fun goHome() {
-        _tab.value = Tab.GAMES
+        _screen.value = Screen.HOME
     }
 
     fun rescan() {
@@ -157,7 +179,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _scanning.value = true
             try {
                 val games = RomScanner.scan(File(root))
-                _library.value = Library(games)
+                setLibrary(Library(games))
                 runCatching { LibraryStore.write(cacheFile, games) }
                 refreshPlayStats()
                 refreshSetup()
@@ -222,15 +244,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .associate { it.key to it.value }
     }
 
-    fun toggleFavourite(game: Game) {
-        prefs.toggleFavourite(game.path)
-        _favourites.value = prefs.favourites()
+    private fun setLibrary(library: Library) {
+        _library.value = library
+        if (_randomPick.value?.path !in library.byPath) rerollRandom()
     }
 
-    /** A random game from the whole library, never the one already shown when there is another. */
-    fun randomGame(excludingPath: String?): Game? {
+    fun toggleFavourite(game: Game) {
+        val adding = game.path !in _favourites.value
+        prefs.toggleFavourite(game.path)
+        _favourites.value = prefs.favourites()
+        toast(if (adding) "★ Added ${game.title} to favourites" else "Removed ${game.title} from favourites")
+    }
+
+    /** Picks another random game from the whole library, never the one already shown when there is another. */
+    fun rerollRandom() {
         val games = _library.value.games
-        return games.filter { it.path != excludingPath }.randomOrNull() ?: games.randomOrNull()
+        val current = _randomPick.value?.path
+        _randomPick.value = games.filter { it.path != current }.randomOrNull() ?: games.randomOrNull()
+    }
+
+    fun togglePin(app: AppEntry) {
+        val dock = AppsRepository.dock(_apps.value, _pinnedApps.value).map { it.packageName }
+        val updated = when {
+            app.packageName in dock -> dock - app.packageName
+            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast("The dock holds ${AppsRepository.MAX_DOCK_SIZE} apps. Unpin one first.")
+            else -> dock + app.packageName
+        }
+        prefs.setPinnedApps(updated)
+        _pinnedApps.value = updated
     }
 
     fun launch(app: AppEntry) {

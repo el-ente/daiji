@@ -17,6 +17,16 @@ data class AppEntry(
 )
 
 object AppsRepository {
+    private const val DEFAULT_DOCK_SIZE = 4
+    const val MAX_DOCK_SIZE = 6
+
+    /** The Home dock: the pinned apps still installed, or the first TV apps until the user pins one. */
+    fun dock(apps: List<AppEntry>, pinned: List<String>?): List<AppEntry> {
+        if (pinned == null) return apps.filter { it.isTv }.take(DEFAULT_DOCK_SIZE)
+        val byPackage = apps.associateBy { it.packageName }
+        return pinned.mapNotNull { byPackage[it] }
+    }
+
     fun load(context: Context): List<AppEntry> {
         val pm = context.packageManager
         val result = LinkedHashMap<String, AppEntry>()

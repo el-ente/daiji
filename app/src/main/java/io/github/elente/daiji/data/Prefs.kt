@@ -2,6 +2,7 @@ package io.github.elente.daiji.data
 
 import android.content.Context
 import androidx.core.content.edit
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class SettingsSnapshot(
@@ -52,19 +53,48 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_SETUP_OFFERED, false)
         set(value) = sp.edit { putBoolean(KEY_SETUP_OFFERED, value) }
 
-    fun favourites(): Set<String> = sp.getStringSet(KEY_FAVOURITES, null).orEmpty().toSet()
+    /** Favourite game path to the time it was added. Favourites saved before the times get 0. */
+    fun favourites(): Map<String, Long> {
+        val json = sp.getString(KEY_FAVOURITES_TIMED, null)
+            ?: return sp.getStringSet(KEY_FAVOURITES, null).orEmpty().associateWith { 0L }
+        return try {
+            val o = JSONObject(json)
+            o.keys().asSequence().associateWith { o.getLong(it) }
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
 
     fun toggleFavourite(path: String) {
         val current = favourites()
-        val updated = if (path in current) current - path else current + path
-        sp.edit { putStringSet(KEY_FAVOURITES, updated) }
+        val updated = if (path in current) current - path else current + (path to System.currentTimeMillis())
+        sp.edit {
+            putString(KEY_FAVOURITES_TIMED, JSONObject(updated).toString())
+            remove(KEY_FAVOURITES)
+        }
     }
+
+    /** Packages pinned to the Home dock, in order. Null until the user pins or unpins an app. */
+    fun pinnedApps(): List<String>? {
+        val json = sp.getString(KEY_PINNED_APPS, null) ?: return null
+        return try {
+            val array = JSONArray(json)
+            List(array.length()) { array.getString(it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun setPinnedApps(packages: List<String>) =
+        sp.edit { putString(KEY_PINNED_APPS, JSONArray(packages).toString()) }
 
     companion object {
         private const val KEY_ROM_ROOT = "rom_root"
         private const val KEY_EMU = "emu_"
         private const val KEY_RECENTS = "recents"
         private const val KEY_FAVOURITES = "favourites"
+        private const val KEY_FAVOURITES_TIMED = "favourites_timed"
+        private const val KEY_PINNED_APPS = "pinned_apps"
         private const val KEY_CORES_IMPORTED = "cores_imported"
         private const val KEY_SETUP_OFFERED = "setup_offered"
         const val MAX_RECENTS = 40

@@ -6,8 +6,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
 object DaijiColors {
-    val Background = Color(0xFF121212)
-    val Rail = Color(0xFF0A0A0A)
+    val Background = Color(0xFF000000)
+    val Ambient = Color(0xFF0B1626)
+    val Glass = Color(0x1AFFFFFF)
+    val GlassEdge = Color(0x73FFFFFF)
+    val DockBand = Color(0x12FFFFFF)
     val Surface = Color(0xFF262626)
     val SurfaceHigh = Color(0xFF3A3A3A)
     val Text = Color(0xFFF5F5F5)
@@ -16,13 +19,17 @@ object DaijiColors {
     val AccentFocused = Color(0xFFFFC861)
     val OnAccent = Color(0xFF121212)
 
-    /** Muted tones for games without artwork, picked by title. */
-    val placeholders = listOf(
-        Color(0xFF3A2F4F), Color(0xFF2F4A45), Color(0xFF4F3A2F), Color(0xFF2F3A4F),
-        Color(0xFF4A2F3F), Color(0xFF3F4A2F), Color(0xFF2F2F4A), Color(0xFF4A4A2F),
+    /** Muted tones for games without artwork, one per system so a grid reads as groups. */
+    private val systemTones = mapOf(
+        "nes" to Color(0xFF5A2A2A), "snes" to Color(0xFF3A2F5A), "n64" to Color(0xFF2F4A3A),
+        "gb" to Color(0xFF3F4A2F), "gbc" to Color(0xFF2F4A4A), "gba" to Color(0xFF2F3A5A),
+        "nds" to Color(0xFF4A4A4A), "mastersystem" to Color(0xFF2F3F5A), "genesis" to Color(0xFF22324A),
+        "arcade" to Color(0xFF5A452A), "neogeo" to Color(0xFF4A3A22), "mame" to Color(0xFF4F3A2F),
+        "psx" to Color(0xFF3A3A44), "psp" to Color(0xFF2A2A3A),
     )
+    private val fallbackTone = Color(0xFF333340)
 
-    fun placeholderFor(key: String): Color = placeholders[Math.floorMod(key.hashCode(), placeholders.size)]
+    fun systemTone(systemId: String): Color = systemTones[systemId] ?: fallbackTone
 }
 
 @Composable
