@@ -15,6 +15,7 @@
     <string name="section_apps">Apps</string>
     <string name="section_games">Games</string>
     <string name="hint_reroll">hold OK for another</string>
+    <string name="acclaimed">acclaimed</string>
     <string name="hint_unfavourite">hold OK to unfavourite</string>
     <string name="all_games_entry">All games  →</string>
 

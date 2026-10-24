@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.elente.daiji.data.AcclaimedGames
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.AppsRepository
 import io.github.elente.daiji.data.Game
@@ -37,8 +38,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.random.Random
 
 enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
+
+/** Share of random picks drawn from acclaimed games; the rest come from the whole library. */
+private const val ACCLAIMED_PICK_SHARE = 0.75f
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -83,6 +88,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _pinnedApps = MutableStateFlow(prefs.pinnedApps())
     val pinnedApps: StateFlow<List<String>?> = _pinnedApps.asStateFlow()
+
+    /** Loaded on first use, which is the first library set on the IO thread. */
+    val acclaimed: AcclaimedGames by lazy { AcclaimedGames.load(app) }
 
     private val _randomPick = MutableStateFlow<Game?>(null)
     val randomPick: StateFlow<Game?> = _randomPick.asStateFlow()
@@ -268,11 +276,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         toast(string(if (adding) R.string.favourite_added else R.string.favourite_removed, game.title))
     }
 
-    /** Picks another random game from the whole library, never the one already shown when there is another. */
+    /**
+     * Picks another random game, never the one already shown when there is another.
+     * Most picks come from acclaimed games, so the suggestion is usually worth playing.
+     */
     fun rerollRandom() {
         val games = _library.value.games
         val current = _randomPick.value?.path
-        _randomPick.value = games.filter { it.path != current }.randomOrNull() ?: games.randomOrNull()
+        val others = games.filter { it.path != current }
+        val acclaimedOthers = others.filter(acclaimed::isAcclaimed)
+        val pool = if (acclaimedOthers.isNotEmpty() && Random.nextFloat() < ACCLAIMED_PICK_SHARE) acclaimedOthers else others
+        _randomPick.value = pool.randomOrNull() ?: games.randomOrNull()
     }
 
     fun togglePin(app: AppEntry) {
