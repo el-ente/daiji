@@ -22,6 +22,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -47,6 +48,7 @@ import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
 import io.github.elente.daiji.data.matchingTitle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val GAME_COLUMNS = 7
 private const val GAMES_SETTINGS_PILL = "pill:settings"
@@ -92,7 +94,8 @@ fun GamesScreen(vm: MainViewModel) {
 
     val memory = rememberFocusMemory { vm.focusMemory[Screen.ALL_GAMES] = it }
     val gridState = rememberLazyGridState()
-    LaunchedEffect(filterId) {
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) {
         val saved = vm.focusMemory[Screen.ALL_GAMES]
         val index = games.indexOfFirst { it.path == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
@@ -119,6 +122,7 @@ fun GamesScreen(vm: MainViewModel) {
             FilterPills(filters, filterId, selectedPill, Modifier.weight(1f)) { id ->
                 filterId = id
                 vm.allGamesFilter = id
+                scope.launch { gridState.scrollToItem(0) }
             }
             SearchField(
                 query = query,
