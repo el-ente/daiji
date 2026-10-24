@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.elente.daiji.data.AppEntry
@@ -142,8 +143,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openRetroArch() {
-        val pkg = retroArchPackage() ?: return toast("RetroArch is not installed")
-        runCatching { retroArchSetup.openRetroArch(pkg) }.onFailure { toast("Cannot open RetroArch") }
+        val pkg = retroArchPackage() ?: return toast(string(R.string.retroarch_not_installed))
+        runCatching { retroArchSetup.openRetroArch(pkg) }.onFailure { toast(string(R.string.cannot_open_retroarch)) }
     }
 
     fun markCoresImported() = retroArchSetup.markCoresImported()
@@ -253,7 +254,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val adding = game.path !in _favourites.value
         prefs.toggleFavourite(game.path)
         _favourites.value = prefs.favourites()
-        toast(if (adding) "★ Added ${game.title} to favourites" else "Removed ${game.title} from favourites")
+        toast(string(if (adding) R.string.favourite_added else R.string.favourite_removed, game.title))
     }
 
     /** Picks another random game from the whole library, never the one already shown when there is another. */
@@ -267,7 +268,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val dock = AppsRepository.dock(_apps.value, _pinnedApps.value).map { it.packageName }
         val updated = when {
             app.packageName in dock -> dock - app.packageName
-            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast("The dock holds ${AppsRepository.MAX_DOCK_SIZE} apps. Unpin one first.")
+            dock.size >= AppsRepository.MAX_DOCK_SIZE -> return toast(string(R.string.dock_full, AppsRepository.MAX_DOCK_SIZE))
             else -> dock + app.packageName
         }
         prefs.setPinnedApps(updated)
@@ -287,6 +288,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    private fun string(@StringRes id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
     private fun checkStorageAccess(): Boolean =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

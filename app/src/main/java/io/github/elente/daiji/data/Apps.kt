@@ -7,6 +7,7 @@ import android.content.Intent
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.provider.Settings
+import io.github.elente.daiji.R
 
 data class AppEntry(
     val packageName: String,
@@ -84,9 +85,9 @@ object AppsRepository {
             context.startActivity(intent)
             null
         } catch (e: ActivityNotFoundException) {
-            "Couldn't open ${app.label}"
+            context.getString(R.string.app_open_failed, app.label)
         } catch (e: SecurityException) {
-            "Couldn't open ${app.label}"
+            context.getString(R.string.app_open_failed, app.label)
         }
     }
 
