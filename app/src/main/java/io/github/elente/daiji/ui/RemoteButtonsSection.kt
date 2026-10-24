@@ -39,7 +39,7 @@ import io.github.elente.daiji.remote.RemoteButtons
 import io.github.elente.daiji.remote.RemoteKeyService
 
 /** Which button is being set, and whether for a tap or a hold. */
-private data class Editing(val scancode: Int, val hold: Boolean)
+private data class Editing(val button: ButtonMapping, val hold: Boolean)
 
 /** Settings > Remote buttons: the key service's state, the buttons set so far, and adding one by pressing it. */
 @Composable
@@ -49,6 +49,7 @@ fun RemoteButtonsSection() {
     var learning by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<Editing?>(null) }
     var options by remember { mutableStateOf<ButtonMapping?>(null) }
+    var renaming by remember { mutableStateOf<ButtonMapping?>(null) }
     val refresh = { mappings = RemoteButtons.all(context) }
     val serviceOn = isKeyServiceOn(context)
 
@@ -64,7 +65,7 @@ fun RemoteButtonsSection() {
         )
         mappings.forEach { mapping ->
             SettingRow(
-                title = "Button ${mapping.scancode}",
+                title = mapping.name,
                 value = describe(context, mapping),
                 onClick = { options = mapping },
             )
@@ -80,16 +81,16 @@ fun RemoteButtonsSection() {
         LearnButtonDialog(
             onButton = { scancode ->
                 learning = false
-                picking = Editing(scancode, hold = false)
+                picking = Editing(ButtonMapping(scancode, tap = null, hold = null), hold = false)
             },
             onDismiss = { learning = false },
         )
     }
     picking?.let { editing ->
         TargetPickerDialog(
-            title = "Button ${editing.scancode}" + if (editing.hold) ", held" else "",
+            title = editing.button.name + if (editing.hold) ", held" else "",
             onPick = { target ->
-                RemoteButtons.set(context, editing.scancode, editing.hold, target)
+                RemoteButtons.set(context, editing.button.scancode, editing.hold, target)
                 picking = null
                 refresh()
             },
@@ -98,14 +99,26 @@ fun RemoteButtonsSection() {
     }
     options?.let { mapping ->
         ChoiceDialog(
-            title = "Button ${mapping.scancode}",
+            title = mapping.name,
             choices = listOfNotNull(
-                "Change tap" to { picking = Editing(mapping.scancode, hold = false) },
-                (if (mapping.hold == null) "Set a hold action" else "Change hold") to { picking = Editing(mapping.scancode, hold = true) },
+                "Change tap" to { picking = Editing(mapping, hold = false) },
+                (if (mapping.hold == null) "Set a hold action" else "Change hold") to { picking = Editing(mapping, hold = true) },
                 mapping.hold?.let { "Remove hold" to { RemoteButtons.clear(context, mapping.scancode, hold = true); refresh() } },
+                "Rename" to { renaming = mapping },
                 "Remove button" to { RemoteButtons.remove(context, mapping.scancode); refresh() },
             ),
             onDismiss = { options = null },
+        )
+    }
+    renaming?.let { mapping ->
+        RenameDialog(
+            mapping = mapping,
+            onSave = { label ->
+                RemoteButtons.rename(context, mapping.scancode, label)
+                renaming = null
+                refresh()
+            },
+            onDismiss = { renaming = null },
         )
     }
 }
@@ -159,6 +172,25 @@ private fun TargetPickerDialog(title: String, onPick: (String) -> Unit, onDismis
             }
         }
         LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    }
+}
+
+@Composable
+private fun RenameDialog(mapping: ButtonMapping, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var label by remember { mutableStateOf(mapping.label.orEmpty()) }
+    val field = remember { FocusRequester() }
+    DialogPanel(onDismiss) {
+        Text("Rename button ${mapping.scancode}", color = DaijiColors.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        SearchField(
+            query = label,
+            onQueryChange = { label = it },
+            placeholder = "Button ${mapping.scancode}",
+            icon = null,
+            modifier = Modifier.fillMaxWidth().focusRequester(field),
+        )
+        Text("Leave it empty to show the number again.", color = DaijiColors.Muted, fontSize = 14.sp)
+        PillButton(text = "Save", onClick = { onSave(label) }, modifier = Modifier.fillMaxWidth())
+        LaunchedEffect(Unit) { runCatching { field.requestFocus() } }
     }
 }
 

@@ -202,6 +202,7 @@ fun SearchField(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "Search",
+    icon: ImageVector? = Glyphs.Search,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -234,7 +235,7 @@ fun SearchField(
         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
         decorationBox = { field ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Glyphs.Search, contentDescription = null, tint = DaijiColors.Text, modifier = Modifier.size(18.dp))
+                icon?.let { Icon(it, contentDescription = null, tint = DaijiColors.Text, modifier = Modifier.size(18.dp)) }
                 Box(Modifier.weight(1f)) {
                     if (query.isEmpty()) {
                         Text(placeholder, color = DaijiColors.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
