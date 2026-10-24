@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.BuildConfig
 import io.github.elente.daiji.MainViewModel
+import io.github.elente.daiji.R
 import io.github.elente.daiji.launch.Emulators
 import java.io.File
 
@@ -77,7 +80,7 @@ fun SettingsScreen(vm: MainViewModel) {
     ) {
         item {
             Text(
-                "Settings",
+                stringResource(R.string.settings),
                 color = DaijiColors.Text,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -85,11 +88,11 @@ fun SettingsScreen(vm: MainViewModel) {
             )
         }
 
-        item { SectionTitle("Library") }
+        item { SectionTitle(stringResource(R.string.section_library)) }
         item {
             SettingRow(
-                title = "Storage access",
-                value = if (hasAccess) "Granted" else "Needed — select to grant",
+                title = stringResource(R.string.storage_access),
+                value = stringResource(if (hasAccess) R.string.storage_granted else R.string.storage_needed),
                 onClick = {
                     if (!hasAccess) requestStorage(context, vm) { legacyPermission.launch(it) }
                 },
@@ -97,33 +100,33 @@ fun SettingsScreen(vm: MainViewModel) {
         }
         item {
             SettingRow(
-                title = "ROMs folder",
-                value = settings.romRoot ?: "Not set",
+                title = stringResource(R.string.roms_folder),
+                value = settings.romRoot ?: stringResource(R.string.not_set),
                 onClick = { pickingFolder = true },
                 modifier = Modifier.focusRequester(romsFolderRow),
             )
         }
         item {
             SettingRow(
-                title = "Rescan library",
-                value = if (scanning) "Scanning…" else "${library.games.size} games",
+                title = stringResource(R.string.rescan_library),
+                value = if (scanning) stringResource(R.string.scanning) else pluralStringResource(R.plurals.game_count, library.games.size, library.games.size),
                 onClick = { vm.rescan() },
             )
         }
 
-        item { SectionTitle("Emulators") }
+        item { SectionTitle(stringResource(R.string.section_emulators)) }
         item {
             val setup by vm.setup.collectAsStateWithLifecycle()
             SettingRow(
-                title = "Set up RetroArch",
-                value = if (setup.isComplete) "Done" else "Install, cores, box art",
+                title = stringResource(R.string.set_up_retroarch),
+                value = stringResource(if (setup.isComplete) R.string.setup_done else R.string.setup_summary),
                 onClick = { vm.openSetup() },
             )
         }
         if (library.systems.isEmpty()) {
             item {
                 Text(
-                    "Systems show up here once games are found.",
+                    stringResource(R.string.no_systems),
                     color = DaijiColors.Muted,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(vertical = 6.dp),
@@ -133,17 +136,18 @@ fun SettingsScreen(vm: MainViewModel) {
         items(library.systems, key = { it.id }) { system ->
             val emulator = Emulators.resolve(system, settings)
             val installed = emulator.id == Emulators.ASK || emulator.id in settings.installedEmulators
+            val name = if (emulator.id == Emulators.ASK) stringResource(R.string.emulator_ask_android) else emulator.name
             SettingRow(
                 title = system.name,
-                value = emulator.name + if (installed) "" else " (not installed)",
+                value = if (installed) name else stringResource(R.string.emulator_not_installed, name),
                 onClick = { vm.cycleEmulator(system) },
             )
         }
 
-        item { SectionTitle("Device") }
+        item { SectionTitle(stringResource(R.string.section_device)) }
         item {
             SettingRow(
-                title = "Android settings",
+                title = stringResource(R.string.android_settings),
                 value = "",
                 onClick = {
                     runCatching {
@@ -154,7 +158,7 @@ fun SettingsScreen(vm: MainViewModel) {
         }
         item {
             Text(
-                text = "To make Daiji your home screen on Google TV, disable the stock launcher over ADB:\n" +
+                text = stringResource(R.string.home_screen_hint) + "\n" +
                     "adb shell pm disable-user --user 0 com.google.android.apps.tv.launcherx\n" +
                     "adb shell pm disable-user --user 0 com.google.android.tungsten.setupwraith\n\n" +
                     "Daiji ${BuildConfig.VERSION_NAME}",
@@ -223,7 +227,7 @@ private fun requestStorage(context: Context, vm: MainViewModel, legacy: (String)
             runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
         }
         if (!opened) {
-            vm.toast("Grant it over ADB: adb shell appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow")
+            vm.toast(context.getString(R.string.grant_over_adb, "adb shell appops set --uid ${context.packageName} MANAGE_EXTERNAL_STORAGE allow"))
         }
     } else {
         legacy(Manifest.permission.READ_EXTERNAL_STORAGE)

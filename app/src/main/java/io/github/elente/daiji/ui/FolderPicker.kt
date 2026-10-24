@@ -17,12 +17,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import io.github.elente.daiji.R
 import io.github.elente.daiji.data.RomScanner
 import java.io.File
 import kotlinx.coroutines.delay
@@ -45,7 +47,7 @@ fun FolderPicker(start: File?, onPick: (File) -> Unit, onCancel: () -> Unit) {
             .padding(start = 42.dp, end = 42.dp, top = 30.dp, bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("ROMs folder", color = DaijiColors.Text, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+        Text(stringResource(R.string.roms_folder), color = DaijiColors.Text, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
         PickerHeader(current)
         val dir = current
         if (dir == null) {
@@ -59,7 +61,7 @@ fun FolderPicker(start: File?, onPick: (File) -> Unit, onCancel: () -> Unit) {
 @Composable
 private fun PickerHeader(current: File?) {
     Text(
-        text = current?.path ?: "Choose a storage volume",
+        text = current?.path ?: stringResource(R.string.choose_volume),
         color = DaijiColors.Muted,
         fontSize = 13.sp,
         fontFamily = FontFamily.Monospace,
@@ -90,11 +92,11 @@ private fun SubfolderList(dir: File, onPick: () -> Unit, onUp: () -> Unit, onOpe
         item {
             UseFolderRow(dir, onClick = onPick, modifier = Modifier.focusRequester(first))
         }
-        item { SettingRow(title = "..", value = "Up", onClick = onUp) }
+        item { SettingRow(title = "..", value = stringResource(R.string.folder_up), onClick = onUp) }
         if (children == null) {
-            item { Hint("Can't read this folder. Check storage access.") }
+            item { Hint(stringResource(R.string.folder_unreadable)) }
         } else if (children.isEmpty()) {
-            item { Hint("No subfolders") }
+            item { Hint(stringResource(R.string.no_subfolders)) }
         }
         items(children.orEmpty(), key = { it.path }) { child ->
             SettingRow(title = child.name, value = "", onClick = { onOpen(child) })
@@ -112,7 +114,7 @@ private fun UseFolderRow(dir: File, onClick: () -> Unit, modifier: Modifier) {
         focusedScale = 1.01f,
     ) {
         Text(
-            text = "Use this folder: ${dir.name}",
+            text = stringResource(R.string.use_this_folder, dir.name),
             color = DaijiColors.OnAccent,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
@@ -141,5 +143,6 @@ private fun subfolders(dir: File): List<File>? =
         ?.filter { it.isDirectory && !it.name.startsWith(".") }
         ?.sortedBy { it.name.lowercase() }
 
+@Composable
 private fun volumeLabel(volume: File): String =
-    if (volume.path.startsWith("/storage/emulated")) "Internal storage" else volume.name
+    if (volume.path.startsWith("/storage/emulated")) stringResource(R.string.internal_storage) else volume.name

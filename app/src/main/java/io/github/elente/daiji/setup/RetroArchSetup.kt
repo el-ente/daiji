@@ -1,6 +1,8 @@
 package io.github.elente.daiji.setup
 
 import android.content.Context
+import androidx.annotation.StringRes
+import io.github.elente.daiji.R
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Prefs
 import io.github.elente.daiji.launch.GameLauncher
@@ -9,13 +11,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-enum class Step(val title: String) {
-    INSTALL("Install RetroArch"),
-    CORES("Download cores"),
-    CONFIG("Configure RetroArch"),
-    DATABASES("Download game info"),
-    THUMBNAILS("Download box art"),
-    IMPORT("Import cores in RetroArch"),
+enum class Step(@StringRes val title: Int) {
+    INSTALL(R.string.step_install),
+    CORES(R.string.step_cores),
+    CONFIG(R.string.step_config),
+    DATABASES(R.string.step_databases),
+    THUMBNAILS(R.string.step_thumbnails),
+    IMPORT(R.string.step_import),
 }
 
 enum class StepStatus { PENDING, RUNNING, DONE, FAILED }
@@ -40,7 +42,7 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
     fun refresh(retroArchPackage: String?, library: Library) {
         val cores = CoreDownloader.coresFor(library.systems)
         if (retroArchPackage != null) setStatus(Step.INSTALL, StepStatus.DONE, retroArchPackage)
-        if (cores.isNotEmpty() && cores.all(CoreDownloader::isDownloaded)) setStatus(Step.CORES, StepStatus.DONE, "${cores.size} cores")
+        if (cores.isNotEmpty() && cores.all(CoreDownloader::isDownloaded)) setStatus(Step.CORES, StepStatus.DONE, coreCount(cores.size))
         if (RetroArchConfig.isWritten()) setStatus(Step.CONFIG, StepStatus.DONE)
         val databases = DatabaseDownloader.databasesFor(library.systems)
         if (databases.isNotEmpty() && databases.all(DatabaseDownloader::isDownloaded)) setStatus(Step.DATABASES, StepStatus.DONE)
@@ -51,11 +53,11 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
     fun installRetroArch() = run(Step.INSTALL) {
         if (!RetroArchInstaller.canInstall(context)) {
             RetroArchInstaller.openUnknownSourcesSettings(context)
-            error("Allow Daiji to install apps, then try again")
+            error(context.getString(R.string.allow_install))
         }
         RetroArchInstaller.download { read, total -> setStatus(Step.INSTALL, StepStatus.RUNNING, progress(read, total)) }
         RetroArchInstaller.install(context)
-        setStatus(Step.INSTALL, StepStatus.PENDING, "Confirm the install, then come back")
+        setStatus(Step.INSTALL, StepStatus.PENDING, context.getString(R.string.confirm_install))
     }
 
     fun provision(library: Library, retroArchPackage: String) {
@@ -80,7 +82,7 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
             setStatus(Step.CORES, StepStatus.RUNNING, "$core (${index + 1}/${cores.size})")
             CoreDownloader.download(core)
         }
-        setStatus(Step.CORES, StepStatus.DONE, "${cores.size} cores")
+        setStatus(Step.CORES, StepStatus.DONE, coreCount(cores.size))
     }
 
     private fun writeConfig(library: Library, retroArchPackage: String) = run(Step.CONFIG) {
@@ -96,7 +98,7 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
             setStatus(Step.DATABASES, StepStatus.RUNNING, "${index + 1}/${names.size}")
             if (DatabaseDownloader.download(name)) found++
         }
-        setStatus(Step.DATABASES, StepStatus.DONE, "$found of ${names.size} systems")
+        setStatus(Step.DATABASES, StepStatus.DONE, context.getString(R.string.databases_found, found, names.size))
     }
 
     private fun scrapeThumbnails(library: Library) = run(Step.THUMBNAILS) {
@@ -104,7 +106,7 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
         val found = ThumbnailScraper.scrape(missing) { done, total ->
             setStatus(Step.THUMBNAILS, StepStatus.RUNNING, "$done/$total")
         }
-        setStatus(Step.THUMBNAILS, StepStatus.DONE, "$found of ${missing.size} found")
+        setStatus(Step.THUMBNAILS, StepStatus.DONE, context.getString(R.string.thumbnails_found, found, missing.size))
     }
 
     private fun run(step: Step, block: () -> Unit) {
@@ -124,6 +126,8 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
             state.copy(steps = state.steps.map { if (it.step == step) SetupStep(step, status, detail) else it })
         }
     }
+
+    private fun coreCount(count: Int): String = context.resources.getQuantityString(R.plurals.core_count, count, count)
 
     private fun progress(read: Long, total: Long): String {
         val readMb = read / 1_000_000
