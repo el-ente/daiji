@@ -43,6 +43,15 @@ class Prefs(context: Context) {
         sp.edit { putString(KEY_RECENTS, o.toString()) }
     }
 
+    var coresImported: Boolean
+        get() = sp.getBoolean(KEY_CORES_IMPORTED, false)
+        set(value) = sp.edit { putBoolean(KEY_CORES_IMPORTED, value) }
+
+    /** Setup is offered once on its own; afterwards it waits in Settings. */
+    var setupOffered: Boolean
+        get() = sp.getBoolean(KEY_SETUP_OFFERED, false)
+        set(value) = sp.edit { putBoolean(KEY_SETUP_OFFERED, value) }
+
     fun favourites(): Set<String> = sp.getStringSet(KEY_FAVOURITES, null).orEmpty().toSet()
 
     fun toggleFavourite(path: String) {
@@ -56,6 +65,8 @@ class Prefs(context: Context) {
         const val KEY_EMU = "emu_"
         const val KEY_RECENTS = "recents"
         const val KEY_FAVOURITES = "favourites"
+        const val KEY_CORES_IMPORTED = "cores_imported"
+        const val KEY_SETUP_OFFERED = "setup_offered"
         const val MAX_RECENTS = 40
     }
 }

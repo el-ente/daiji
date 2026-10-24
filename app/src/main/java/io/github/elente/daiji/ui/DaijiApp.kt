@@ -57,6 +57,7 @@ fun DaijiApp(vm: MainViewModel) {
                     Tab.GAMES -> GamesScreen(vm)
                     Tab.APPS -> AppsScreen(vm)
                     Tab.SETTINGS -> SettingsScreen(vm)
+                    Tab.SETUP -> SetupScreen(vm)
                 }
             }
         }

@@ -4,9 +4,10 @@ A fast, games-first home screen for Android TV and Google TV. It shows your
 retro games and your TV apps in one place, and launches games in RetroArch or
 standalone emulators.
 
-Native Kotlin with Compose for TV. No artwork scraping, analytics or network
-access, so it starts fast and stays light on 2 GB devices like the Chromecast
-with Google TV.
+Native Kotlin with Compose for TV. No analytics, so it starts fast and stays
+light on 2 GB devices like the Chromecast with Google TV. The network is used
+only when you ask for it: **Settings → Set up RetroArch** downloads RetroArch,
+its cores and box art from libretro.
 
 ## Install
 

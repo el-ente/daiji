@@ -112,6 +112,14 @@ fun SettingsScreen(vm: MainViewModel) {
         }
 
         item { SectionTitle("Emulators") }
+        item {
+            val setup by vm.setup.collectAsStateWithLifecycle()
+            SettingRow(
+                title = "Set up RetroArch",
+                value = if (setup.isComplete) "Done" else "Install, cores, box art",
+                onClick = { vm.openSetup() },
+            )
+        }
         if (library.systems.isEmpty()) {
             item {
                 Text(
