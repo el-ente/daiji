@@ -7,7 +7,7 @@ standalone emulators.
 Native Kotlin with Compose for TV. No analytics, so it starts fast and stays
 light on 2 GB devices like the Chromecast with Google TV. The network is used
 only when you ask for it: **Settings → Set up RetroArch** downloads RetroArch,
-its cores and box art from libretro.
+its cores, box art and game info from libretro.
 
 ## Install
 

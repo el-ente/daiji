@@ -18,6 +18,9 @@ object RomScanner {
         "Emulation/roms", "Emulation/ROMs", "RetroArch/roms",
     )
 
+    private val retroArchDir: File get() = File(Environment.getExternalStorageDirectory(), "RetroArch")
+    private val esdeMedia: File get() = File(Environment.getExternalStorageDirectory(), "ES-DE/downloaded_media")
+
     /** Internal storage first, then SD cards and USB drives. */
     fun volumes(): List<File> {
         val external = File("/storage").listFiles()
@@ -35,61 +38,67 @@ object RomScanner {
             .distinctBy { it.path.lowercase() }
 
     fun scan(root: File): List<Game> {
-        val esdeMedia = File(Environment.getExternalStorageDirectory(), "ES-DE/downloaded_media")
-        val retroArch = File(Environment.getExternalStorageDirectory(), "RetroArch")
-        val result = ArrayList<Game>()
         val dirs = root.listFiles() ?: return emptyList()
+        return dirs.filter { it.isDirectory }
+            .flatMap { dir -> Systems.byFolder(dir.name)?.let { scanSystem(dir, it) }.orEmpty() }
+            .sortedWith(compareBy<Game>({ Systems.order(it.systemId) }, { it.title.lowercase() }))
+    }
 
-        for (dir in dirs) {
-            if (!dir.isDirectory) continue
-            val system = Systems.byFolder(dir.name) ?: continue
-            val files = dir.listFiles() ?: continue
-
-            // Local media wins over ES-DE's downloaded media; RetroArch thumbnails are the last resort.
-            val covers = indexImages(File(esdeMedia, "${dir.name}/covers")) +
-                indexImages(File(dir, "media/covers"))
-            val screenshots = indexImages(File(esdeMedia, "${dir.name}/screenshots")) +
-                indexImages(File(dir, "media/screenshots"))
-            val retroArchDir = system.retroArchName?.let { File(retroArch, "thumbnails/$it") }
-            val daijiDir = system.retroArchName?.let { File(DaijiDirs.thumbnails, it) }
-            val playlistLabels = system.retroArchName?.let { playlistLabels(File(retroArch, "playlists/$it.lpl")) }.orEmpty()
-            val retroArchCovers = indexImages(retroArchDir?.resolve("Named_Boxarts")) +
-                indexImages(daijiDir?.resolve("Named_Boxarts"))
-            val retroArchScreenshots = indexImages(retroArchDir?.resolve("Named_Titles")) +
-                indexImages(retroArchDir?.resolve("Named_Snaps"))
-
-            // Multi-disc games: hide the discs an .m3u playlist already lists.
-            val listedInM3u = HashSet<String>()
-            for (file in files) {
-                if (!file.extension.equals("m3u", ignoreCase = true)) continue
-                runCatching {
-                    file.readLines()
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() && !it.startsWith("#") }
-                        .forEach { listedInM3u += File(it).name.lowercase() }
-                }
-            }
-
-            for (file in files) {
-                if (!file.isFile || file.name.startsWith(".")) continue
-                if (file.extension.lowercase() !in system.extensions) continue
-                if (file.name.lowercase() in listedInM3u) continue
-                val base = file.nameWithoutExtension
-                val label = playlistLabels[file.name.lowercase()]
-                val thumbnailNames = retroArchThumbnailNames(label, base)
-                result += Game(
-                    path = file.path,
-                    title = cleanTitle(label ?: base),
-                    systemId = system.id,
-                    cover = covers[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchCovers[it] },
-                    screenshot = screenshots[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchScreenshots[it] },
-                )
-            }
+    private fun scanSystem(dir: File, system: GameSystem): List<Game> {
+        val files = dir.listFiles() ?: return emptyList()
+        val roms = romFiles(files, system)
+        val media = SystemMedia(dir, system)
+        val labels = system.retroArchName?.let { playlistLabels(File(retroArchDir, "playlists/$it.lpl")) }.orEmpty()
+        val info = databaseInfo(system, roms)
+        return roms.map { file ->
+            val base = file.nameWithoutExtension
+            val label = labels[file.name.lowercase()]
+            val thumbnailNames = retroArchThumbnailNames(label, base)
+            Game(
+                path = file.path,
+                title = cleanTitle(label ?: base),
+                systemId = system.id,
+                cover = media.cover(base, thumbnailNames),
+                screenshot = media.screenshot(base, thumbnailNames),
+                info = info[base.lowercase()] ?: GameInfo.NONE,
+            )
         }
+    }
 
-        return result.sortedWith(
-            compareBy<Game>({ Systems.order(it.systemId) }, { it.title.lowercase() })
-        )
+    private fun romFiles(files: Array<File>, system: GameSystem): List<File> {
+        val discs = discsListedInM3u(files)
+        return files.filter {
+            it.isFile && !it.name.startsWith(".") &&
+                it.extension.lowercase() in system.extensions &&
+                it.name.lowercase() !in discs
+        }
+    }
+
+    /** Multi-disc games: the discs an .m3u playlist lists are hidden behind it. */
+    private fun discsListedInM3u(files: Array<File>): Set<String> =
+        files.filter { it.extension.equals("m3u", ignoreCase = true) }
+            .flatMap { m3u -> runCatching { m3u.readLines() }.getOrDefault(emptyList()) }
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .map { File(it).name.lowercase() }
+            .toSet()
+
+    /** Local media wins over ES-DE's downloaded media; RetroArch thumbnails are the last resort. */
+    private class SystemMedia(dir: File, system: GameSystem) {
+        private val retroArchThumbs = system.retroArchName?.let { File(retroArchDir, "thumbnails/$it") }
+        private val daijiThumbs = system.retroArchName?.let { File(DaijiDirs.thumbnails, it) }
+        private val covers = indexImages(File(esdeMedia, "${dir.name}/covers")) + indexImages(File(dir, "media/covers"))
+        private val screenshots = indexImages(File(esdeMedia, "${dir.name}/screenshots")) + indexImages(File(dir, "media/screenshots"))
+        private val retroArchCovers = indexImages(retroArchThumbs?.resolve("Named_Boxarts")) +
+            indexImages(daijiThumbs?.resolve("Named_Boxarts"))
+        private val retroArchScreenshots = indexImages(retroArchThumbs?.resolve("Named_Titles")) +
+            indexImages(retroArchThumbs?.resolve("Named_Snaps"))
+
+        fun cover(base: String, thumbnailNames: List<String>): String? =
+            covers[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchCovers[it] }
+
+        fun screenshot(base: String, thumbnailNames: List<String>): String? =
+            screenshots[base] ?: thumbnailNames.firstNotNullOfOrNull { retroArchScreenshots[it] }
     }
 
     private fun indexImages(dir: File?): Map<String, String> =
@@ -97,6 +106,15 @@ object RomScanner {
             ?.filter { it.isFile && it.extension.lowercase() in imageExtensions }
             ?.associate { it.nameWithoutExtension to it.path }
             ?: emptyMap()
+
+    /** Daiji's own database copy first, then the one a stock RetroArch install keeps. */
+    private fun databaseInfo(system: GameSystem, roms: List<File>): Map<String, GameInfo> {
+        val name = system.retroArchName ?: return emptyMap()
+        val database = listOf(DaijiDirs.databases, File(retroArchDir, "database/rdb"))
+            .map { File(it, "$name.rdb") }
+            .firstOrNull { it.isFile } ?: return emptyMap()
+        return RetroArchDatabase.lookup(database, roms.map { it.nameWithoutExtension.lowercase() }.toSet())
+    }
 
     /** ROM file name (lowercase) to playlist label, read from a RetroArch `.lpl` JSON playlist. */
     private fun playlistLabels(playlist: File): Map<String, String> = runCatching {

@@ -13,8 +13,10 @@ import io.github.elente.daiji.data.AppsRepository
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.GameSystem
 import io.github.elente.daiji.data.Library
+import io.github.elente.daiji.data.PlayStats
 import io.github.elente.daiji.data.LibraryStore
 import io.github.elente.daiji.data.Prefs
+import io.github.elente.daiji.data.RetroArchPlayLog
 import io.github.elente.daiji.data.RomScanner
 import io.github.elente.daiji.data.SettingsSnapshot
 import io.github.elente.daiji.data.Systems
@@ -55,6 +57,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _recents = MutableStateFlow(prefs.recents())
     val recents: StateFlow<Map<String, Long>> = _recents.asStateFlow()
 
+    /** Game path to seconds played in RetroArch. */
+    private val _playtime = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val playtime: StateFlow<Map<String, Long>> = _playtime.asStateFlow()
+
     private val _favourites = MutableStateFlow(prefs.favourites())
     val favourites: StateFlow<Set<String>> = _favourites.asStateFlow()
 
@@ -81,8 +87,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onResume() {
         val hadAccess = _hasStorageAccess.value
         _hasStorageAccess.value = checkStorageAccess()
-        _recents.value = prefs.recents()
         viewModelScope.launch(Dispatchers.IO) {
+            refreshPlayStats()
             _apps.value = AppsRepository.load(getApplication())
             _settings.value = _settings.value.copy(installedEmulators = Emulators.installed(getApplication()))
             if (!hadAccess && _hasStorageAccess.value) scan()
@@ -153,6 +159,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val games = RomScanner.scan(File(root))
                 _library.value = Library(games)
                 runCatching { LibraryStore.write(cacheFile, games) }
+                refreshPlayStats()
                 refreshSetup()
             } finally {
                 _scanning.value = false
@@ -192,8 +199,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             toast(error)
         } else {
             prefs.markPlayed(game.path)
-            _recents.value = prefs.recents()
+            viewModelScope.launch(Dispatchers.IO) { refreshPlayStats() }
         }
+    }
+
+    /** RetroArch logs every session itself, including ones not started from Daiji. */
+    private fun refreshPlayStats() {
+        val logs = RetroArchPlayLog.read()
+        val stats = _library.value.games
+            .mapNotNull { game -> logs[File(game.path).nameWithoutExtension.lowercase()]?.let { game.path to it } }
+            .toMap()
+        _playtime.value = stats.mapValues { it.value.runtimeSeconds }.filterValues { it > 0 }
+        _recents.value = mergeRecents(prefs.recents(), stats)
+    }
+
+    private fun mergeRecents(own: Map<String, Long>, stats: Map<String, PlayStats>): Map<String, Long> {
+        val merged = own.toMutableMap()
+        stats.forEach { (path, s) -> s.lastPlayed?.let { merged[path] = maxOf(merged[path] ?: 0, it) } }
+        return merged.entries
+            .sortedByDescending { it.value }
+            .take(Prefs.MAX_RECENTS)
+            .associate { it.key to it.value }
     }
 
     fun toggleFavourite(game: Game) {

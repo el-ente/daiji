@@ -4,12 +4,26 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
+/** Release details from the libretro database. Fields the database lacks stay null. */
+data class GameInfo(
+    val year: Int? = null,
+    val players: Int? = null,
+    val genre: String? = null,
+    val developer: String? = null,
+    val publisher: String? = null,
+) {
+    companion object {
+        val NONE = GameInfo()
+    }
+}
+
 data class Game(
     val path: String,
     val title: String,
     val systemId: String,
     val cover: String?,
     val screenshot: String?,
+    val info: GameInfo = GameInfo.NONE,
 ) {
     val extension: String get() = path.substringAfterLast('.', "").uppercase()
 }
@@ -40,11 +54,28 @@ object LibraryStore {
                     systemId = o.getString("s"),
                     cover = if (o.has("c")) o.getString("c") else null,
                     screenshot = if (o.has("i")) o.getString("i") else null,
+                    info = readInfo(o),
                 )
             }
         }
     } catch (e: Exception) {
         emptyList()
+    }
+
+    private fun readInfo(o: JSONObject) = GameInfo(
+        year = if (o.has("y")) o.getInt("y") else null,
+        players = if (o.has("u")) o.getInt("u") else null,
+        genre = o.optString("g").ifEmpty { null },
+        developer = o.optString("d").ifEmpty { null },
+        publisher = o.optString("b").ifEmpty { null },
+    )
+
+    private fun writeInfo(o: JSONObject, info: GameInfo) {
+        info.year?.let { o.put("y", it) }
+        info.players?.let { o.put("u", it) }
+        info.genre?.let { o.put("g", it) }
+        info.developer?.let { o.put("d", it) }
+        info.publisher?.let { o.put("b", it) }
     }
 
     fun write(file: File, games: List<Game>) {
@@ -56,6 +87,7 @@ object LibraryStore {
                 .put("s", g.systemId)
             g.cover?.let { o.put("c", it) }
             g.screenshot?.let { o.put("i", it) }
+            writeInfo(o, g.info)
             array.put(o)
         }
         val tmp = File(file.parentFile, file.name + ".tmp")

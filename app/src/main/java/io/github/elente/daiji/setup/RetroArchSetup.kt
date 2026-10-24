@@ -13,6 +13,7 @@ enum class Step(val title: String) {
     INSTALL("Install RetroArch"),
     CORES("Download cores"),
     CONFIG("Configure RetroArch"),
+    DATABASES("Download game info"),
     THUMBNAILS("Download box art"),
     IMPORT("Import cores in RetroArch"),
 }
@@ -41,6 +42,8 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
         if (retroArchPackage != null) setStatus(Step.INSTALL, StepStatus.DONE, retroArchPackage)
         if (cores.isNotEmpty() && cores.all(CoreDownloader::isDownloaded)) setStatus(Step.CORES, StepStatus.DONE, "${cores.size} cores")
         if (RetroArchConfig.isWritten()) setStatus(Step.CONFIG, StepStatus.DONE)
+        val databases = DatabaseDownloader.databasesFor(library.systems)
+        if (databases.isNotEmpty() && databases.all(DatabaseDownloader::isDownloaded)) setStatus(Step.DATABASES, StepStatus.DONE)
         if (prefs.coresImported) setStatus(Step.IMPORT, StepStatus.DONE)
     }
 
@@ -58,6 +61,7 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
     fun provision(library: Library, retroArchPackage: String) {
         downloadCores(library)
         writeConfig(library, retroArchPackage)
+        downloadDatabases(library)
         scrapeThumbnails(library)
     }
 
@@ -83,6 +87,16 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
         RetroArchConfig.writeConfig()
         RetroArchConfig.writePlaylists(library.games, library.systems, retroArchPackage)
         setStatus(Step.CONFIG, StepStatus.DONE)
+    }
+
+    private fun downloadDatabases(library: Library) = run(Step.DATABASES) {
+        val names = DatabaseDownloader.databasesFor(library.systems)
+        var found = 0
+        names.forEachIndexed { index, name ->
+            setStatus(Step.DATABASES, StepStatus.RUNNING, "${index + 1}/${names.size}")
+            if (DatabaseDownloader.download(name)) found++
+        }
+        setStatus(Step.DATABASES, StepStatus.DONE, "$found of ${names.size} systems")
     }
 
     private fun scrapeThumbnails(library: Library) = run(Step.THUMBNAILS) {
