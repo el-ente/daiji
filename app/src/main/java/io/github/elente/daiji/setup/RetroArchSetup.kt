@@ -3,6 +3,7 @@ package io.github.elente.daiji.setup
 import android.content.Context
 import androidx.annotation.StringRes
 import io.github.elente.daiji.R
+import io.github.elente.daiji.data.AcclaimedGames
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Prefs
 import io.github.elente.daiji.launch.GameLauncher
@@ -60,11 +61,11 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
         setStatus(Step.INSTALL, StepStatus.PENDING, context.getString(R.string.confirm_install))
     }
 
-    fun provision(library: Library, retroArchPackage: String) {
+    fun provision(library: Library, retroArchPackage: String, acclaimed: AcclaimedGames) {
         downloadCores(library)
         writeConfig(library, retroArchPackage)
         downloadDatabases(library)
-        scrapeThumbnails(library)
+        scrapeThumbnails(library, acclaimed)
     }
 
     fun openRetroArch(retroArchPackage: String) {
@@ -101,8 +102,9 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
         setStatus(Step.DATABASES, StepStatus.DONE, context.getString(R.string.databases_found, found, names.size))
     }
 
-    private fun scrapeThumbnails(library: Library) = run(Step.THUMBNAILS) {
-        val missing = ThumbnailScraper.missingCovers(library.games)
+    private fun scrapeThumbnails(library: Library, acclaimed: AcclaimedGames) = run(Step.THUMBNAILS) {
+        val missing = ThumbnailScraper.missingCovers(library.games) +
+            ThumbnailScraper.missingAcclaimedCovers(acclaimed.missing(library))
         val found = ThumbnailScraper.scrape(missing) { done, total ->
             setStatus(Step.THUMBNAILS, StepStatus.RUNNING, "$done/$total")
         }

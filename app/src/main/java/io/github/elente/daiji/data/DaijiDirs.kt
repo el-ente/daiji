@@ -17,4 +17,8 @@ object DaijiDirs {
     val retroArchConfig: File get() = File(retroArch, "retroarch.cfg")
     val playlists: File get() = File(retroArch, "playlists")
     val databases: File get() = File(retroArch, "database/rdb")
+
+    /** Where a game's box art lands, named the way RetroArch looks it up. */
+    fun boxArt(systemName: String, label: String): File =
+        File(thumbnails, "$systemName/Named_Boxarts/${RetroArchNames.thumbnail(label)}.png")
 }

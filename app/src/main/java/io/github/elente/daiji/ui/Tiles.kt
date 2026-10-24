@@ -13,11 +13,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -25,6 +29,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import io.github.elente.daiji.R
 import io.github.elente.daiji.data.AppEntry
 import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Systems
@@ -99,7 +104,9 @@ fun GameTile(
     showCaption: Boolean = landscape,
     artScale: ContentScale = ContentScale.Crop,
     loadArt: Boolean = true,
+    isOwned: Boolean = true,
 ) {
+    val contentAlpha = if (isOwned) 1f else NOT_OWNED_ALPHA
     FocusCard(
         onClick = onClick,
         onLongClick = onLongClick,
@@ -118,9 +125,11 @@ fun GameTile(
                     bitmap = art,
                     contentDescription = game.title,
                     contentScale = artScale,
+                    colorFilter = if (isOwned) null else Grayscale,
+                    alpha = contentAlpha,
                     modifier = Modifier.fillMaxSize(),
                 )
-                if (showCaption) ArtCaption(game.title, titleSize, Modifier.align(Alignment.BottomStart))
+                if (showCaption || !isOwned) ArtCaption(game.title, titleSize, Modifier.align(Alignment.BottomStart))
             } else {
                 Systems.byId(game.systemId)?.let {
                     Badge(it.shortName, Modifier.align(Alignment.TopStart).padding(10.dp))
@@ -135,13 +144,23 @@ fun GameTile(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(12.dp),
+                        .padding(12.dp)
+                        .alpha(contentAlpha),
                 )
             }
             marker?.let { Marker(it, Modifier.align(Alignment.TopEnd).padding(8.dp)) }
+            if (!isOwned) {
+                // Below the system badge when there is one; narrow tiles have no room beside it.
+                val top = if (art == null) 40.dp else 10.dp
+                Badge(stringResource(R.string.not_in_library), Modifier.align(Alignment.TopStart).padding(start = 10.dp, top = top))
+            }
         }
     }
 }
+
+/** Games the user doesn't own are dimmed and drained of colour, so they read as "not here" at a glance. */
+private const val NOT_OWNED_ALPHA = 0.45f
+private val Grayscale = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /** The title over the bottom of a screenshot, on a fade so it stays readable over any picture. */
 @Composable

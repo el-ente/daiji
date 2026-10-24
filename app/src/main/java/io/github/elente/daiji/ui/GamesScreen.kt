@@ -49,6 +49,7 @@ import androidx.tv.material3.Text
 import io.github.elente.daiji.MainViewModel
 import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
+import io.github.elente.daiji.data.Game
 import io.github.elente.daiji.data.Library
 import io.github.elente.daiji.data.Systems
 import kotlinx.coroutines.delay
@@ -56,12 +57,22 @@ import kotlinx.coroutines.delay
 private const val GAMES_SETTINGS_PILL = "pill:settings"
 private const val SEARCH_PILL = "pill:search"
 private const val FAVOURITES = "favourites"
+private const val ACCLAIMED = "acclaimed"
 private val GridFade = 16.dp
 
 /** Covers wait until a platform switch has settled, so their decoding doesn't stutter the new grid. */
 private const val ART_DELAY_AFTER_SWITCH_MS = 300L
 
 private data class Filter(val id: String?, val label: String)
+
+/** A grid cell: a game in the library, or an acclaimed game the user doesn't own, shown so they know it exists. */
+private sealed interface GridItem {
+    val game: Game
+    val key: String get() = game.path
+
+    data class Owned(override val game: Game) : GridItem
+    data class NotOwned(override val game: Game) : GridItem
+}
 
 @Composable
 fun GamesScreen(vm: MainViewModel) {
@@ -81,19 +92,28 @@ fun GamesScreen(vm: MainViewModel) {
         return
     }
 
-    val allLabel = stringResource(R.string.filter_all)
-    val favouritesLabel = stringResource(R.string.filter_favourites)
-    val filters = remember(library, favourites.isEmpty(), allLabel, favouritesLabel) {
-        filters(library, hasFavourites = favourites.isNotEmpty(), allLabel, favouritesLabel)
+    val acclaimedView by vm.acclaimedView.collectAsStateWithLifecycle()
+    val acclaimedOwned = acclaimedView.owned
+    val acclaimedNotOwned = remember(acclaimedView) { acclaimedView.notOwned.map(GridItem::NotOwned) }
+    val labels = FilterLabels(
+        all = stringResource(R.string.filter_all),
+        favourites = stringResource(R.string.filter_favourites),
+        acclaimed = stringResource(R.string.filter_acclaimed),
+    )
+    val hasAcclaimed = acclaimedOwned.isNotEmpty() || acclaimedNotOwned.isNotEmpty()
+    val filters = remember(library, favourites.isEmpty(), hasAcclaimed, labels) {
+        filters(library, hasFavourites = favourites.isNotEmpty(), hasAcclaimed, labels)
     }
     var filterId by remember { mutableStateOf(vm.allGamesFilter?.takeIf { id -> filters.any { it.id == id } }) }
-    val games = remember(library, favourites, filterId) {
+    val items: List<GridItem> = remember(library, favourites, filterId, acclaimedOwned, acclaimedNotOwned) {
         when (filterId) {
-            null -> library.games
-            FAVOURITES -> library.games.filter { it.path in favourites }
-            else -> library.bySystem[filterId].orEmpty()
+            null -> library.games.map(GridItem::Owned)
+            FAVOURITES -> library.games.filter { it.path in favourites }.map(GridItem::Owned)
+            ACCLAIMED -> acclaimedOwned.map(GridItem::Owned) + acclaimedNotOwned
+            else -> library.bySystem[filterId].orEmpty().map(GridItem::Owned)
         }
     }
+    val notInLibrary = stringResource(R.string.not_in_your_library)
     val cell = remember(filterId) { gridCell(Systems.byId(filterId.orEmpty())?.boxArtRatio) }
     val selectedPill = remember { FocusRequester() }
 
@@ -110,9 +130,9 @@ fun GamesScreen(vm: MainViewModel) {
         }
         hasRestoredFocus = true
         val saved = vm.focusMemory[Screen.ALL_GAMES]
-        val index = games.indexOfFirst { it.path == saved }
+        val index = items.indexOfFirst { it.key == saved }
         gridState.scrollToItem(index.coerceAtLeast(0))
-        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_PILL }, games.firstOrNull()?.path)
+        memory.restore(saved?.takeIf { index >= 0 || it == GAMES_SETTINGS_PILL || it == SEARCH_PILL }, items.firstOrNull()?.key)
     }
 
     Column(
@@ -122,7 +142,12 @@ fun GamesScreen(vm: MainViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            ScreenTitle(stringResource(R.string.all_games), games.size, Modifier.weight(1f))
+            if (filterId == ACCLAIMED) {
+                val count = stringResource(R.string.acclaimed_count, acclaimedOwned.size, items.size)
+                ScreenTitle(stringResource(R.string.all_games), count, Modifier.weight(1f))
+            } else {
+                ScreenTitle(stringResource(R.string.all_games), items.size, Modifier.weight(1f))
+            }
             GlassPill(
                 text = stringResource(R.string.search_games),
                 icon = Glyphs.Search,
@@ -150,17 +175,21 @@ fun GamesScreen(vm: MainViewModel) {
             contentPadding = PaddingValues(start = 6.dp, end = 6.dp, top = GridFade, bottom = 40.dp),
             modifier = Modifier.fadeTopEdge(GridFade),
         ) {
-            itemsIndexed(games, key = { _, g -> g.path }, contentType = { _, _ -> "game" }) { index, game ->
+            itemsIndexed(items, key = { _, item -> item.key }, contentType = { _, _ -> "game" }) { index, item ->
                 var focused by remember { mutableStateOf(false) }
+                val game = item.game
+                val isOwned = item is GridItem.Owned
+                val showNotInLibrary = { vm.toast(notInLibrary.format(game.title)) }
                 GameTile(
                     game = game,
-                    onClick = { vm.launch(game) },
-                    onLongClick = { vm.toggleFavourite(game) },
+                    onClick = if (isOwned) ({ vm.launch(game) }) else showNotInLibrary,
+                    onLongClick = if (isOwned) ({ vm.toggleFavourite(game) }) else showNotInLibrary,
                     marker = if (game.path in favourites) "★" else null,
                     showCaption = focused,
                     artScale = ContentScale.Fit,
                     loadArt = isArtReady,
-                    modifier = memory.tag(game.path)
+                    isOwned = isOwned,
+                    modifier = memory.tag(item.key)
                         .onFocusChanged { focused = it.isFocused }
                         .focusProperties { if (index < cell.columns) up = selectedPill }
                         .fillMaxWidth()
@@ -171,10 +200,13 @@ fun GamesScreen(vm: MainViewModel) {
     }
 }
 
-/** All first, then Favourites, then each system with more than one game; a lone game stays under All. */
-private fun filters(library: Library, hasFavourites: Boolean, allLabel: String, favouritesLabel: String): List<Filter> = buildList {
-    add(Filter(null, allLabel))
-    if (hasFavourites) add(Filter(FAVOURITES, favouritesLabel))
+private data class FilterLabels(val all: String, val favourites: String, val acclaimed: String)
+
+/** All first, then Favourites and Acclaimed, then each system with more than one game; a lone game stays under All. */
+private fun filters(library: Library, hasFavourites: Boolean, hasAcclaimed: Boolean, labels: FilterLabels): List<Filter> = buildList {
+    add(Filter(null, labels.all))
+    if (hasFavourites) add(Filter(FAVOURITES, labels.favourites))
+    if (hasAcclaimed) add(Filter(ACCLAIMED, labels.acclaimed))
     library.systems
         .filter { library.bySystem[it.id].orEmpty().size > 1 }
         .forEach { add(Filter(it.id, it.shortName)) }
@@ -285,9 +317,13 @@ private fun EmptyLibrary(
 }
 
 @Composable
-fun ScreenTitle(title: String, count: Int, modifier: Modifier = Modifier) {
+fun ScreenTitle(title: String, count: Int, modifier: Modifier = Modifier) =
+    ScreenTitle(title, "%,d".format(count), modifier)
+
+@Composable
+fun ScreenTitle(title: String, detail: String, modifier: Modifier = Modifier) {
     Text(
-        text = "$title  ·  ${"%,d".format(count)}",
+        text = "$title  ·  $detail",
         color = DaijiColors.Text,
         fontSize = 24.sp,
         fontWeight = FontWeight.Light,
