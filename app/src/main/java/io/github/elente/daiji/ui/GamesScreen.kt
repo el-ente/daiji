@@ -103,7 +103,6 @@ fun GamesScreen(vm: MainViewModel) {
     var isArtReady by remember { mutableStateOf(true) }
     LaunchedEffect(filterId) {
         if (hasRestoredFocus) {
-            isArtReady = false
             gridState.scrollToItem(0)
             delay(ART_DELAY_AFTER_SWITCH_MS)
             isArtReady = true
@@ -138,6 +137,8 @@ fun GamesScreen(vm: MainViewModel) {
             )
         }
         FilterPills(filters, filterId, selectedPill, memory.requester(SEARCH_PILL), Modifier.fillMaxWidth()) { id ->
+            if (id == filterId) return@FilterPills
+            isArtReady = false
             filterId = id
             vm.allGamesFilter = id
         }
