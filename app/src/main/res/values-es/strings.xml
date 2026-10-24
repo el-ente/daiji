@@ -57,6 +57,7 @@
     <string name="emulator_not_installed">%1$s (no instalado)</string>
     <string name="emulator_ask_android">Preguntar a Android</string>
     <string name="launcher_settings">Ajustes del launcher</string>
+    <string name="remote_buttons">Botones del mando</string>
     <string name="android_settings">Ajustes de Android</string>
     <string name="home_screen_hint">Para que Daiji sea tu pantalla de inicio en Google TV, desactiva el launcher de fábrica por ADB:</string>
     <string name="grant_over_adb">Concédelo por ADB: %1$s</string>

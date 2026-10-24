@@ -22,6 +22,7 @@ import io.github.elente.daiji.Screen
 
 private const val ROW_GAMES = "games"
 private const val ROW_ANDROID = "android"
+private const val ROW_REMOTE = "remote"
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
@@ -45,13 +46,19 @@ fun SettingsScreen(vm: MainViewModel) {
         }
         item {
             SettingRow(
+                title = stringResource(R.string.remote_buttons),
+                opensScreen = true,
+                onClick = { vm.open(Screen.REMOTE_BUTTONS) },
+                modifier = memory.tag(ROW_REMOTE),
+            )
+        }
+        item {
+            SettingRow(
                 title = stringResource(R.string.android_settings),
                 onClick = { openAndroidSettings(context) },
                 modifier = memory.tag(ROW_ANDROID),
             )
         }
-        item { SectionTitle("Remote buttons") }
-        item { RemoteButtonsSection() }
         item {
             Text(
                 text = stringResource(R.string.home_screen_hint) + "\n" +

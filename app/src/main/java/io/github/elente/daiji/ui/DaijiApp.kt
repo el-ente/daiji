@@ -40,6 +40,7 @@ fun DaijiApp(vm: MainViewModel) {
                 Screen.ALL_GAMES -> GamesScreen(vm)
                 Screen.SETTINGS -> SettingsScreen(vm)
                 Screen.GAMES_SETTINGS -> GamesSettingsScreen(vm)
+                Screen.REMOTE_BUTTONS -> RemoteButtonsScreen(vm)
                 Screen.SETUP -> SetupScreen(vm)
             }
         }
