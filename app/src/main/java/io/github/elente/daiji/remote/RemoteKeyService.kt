@@ -19,12 +19,14 @@ class RemoteKeyService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        running = this
         loadMappings()
         RemoteButtons.prefs(this).registerOnSharedPreferenceChangeListener(mappingsChanged)
         KeyServiceRepair.connected(this)
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        running = null
         KeyServiceRepair.turnedOff(this)
         return super.onUnbind(intent)
     }
@@ -56,6 +58,10 @@ class RemoteKeyService : AccessibilityService() {
     companion object {
         /** Android's long-press timeout. */
         const val HOLD_MS = 500L
+
+        /** The connected service, for global actions the UI asks for. Main thread only. */
+        var running: RemoteKeyService? = null
+            private set
     }
 }
 
