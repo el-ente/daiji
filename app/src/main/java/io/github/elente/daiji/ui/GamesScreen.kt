@@ -58,6 +58,9 @@ private const val SEARCH_PILL = "pill:search"
 private const val FAVOURITES = "favourites"
 private val GridFade = 16.dp
 
+/** Covers wait until a platform switch has settled, so their decoding doesn't stutter the new grid. */
+private const val ART_DELAY_AFTER_SWITCH_MS = 300L
+
 private data class Filter(val id: String?, val label: String)
 
 @Composable
@@ -97,9 +100,12 @@ fun GamesScreen(vm: MainViewModel) {
     val memory = rememberFocusMemory { vm.focusMemory[Screen.ALL_GAMES] = it }
     val gridState = rememberLazyGridState()
     var hasRestoredFocus by remember { mutableStateOf(false) }
+    var isArtReady by remember { mutableStateOf(true) }
     LaunchedEffect(filterId) {
         if (hasRestoredFocus) {
             gridState.scrollToItem(0)
+            delay(ART_DELAY_AFTER_SWITCH_MS)
+            isArtReady = true
             return@LaunchedEffect
         }
         hasRestoredFocus = true
@@ -131,6 +137,8 @@ fun GamesScreen(vm: MainViewModel) {
             )
         }
         FilterPills(filters, filterId, selectedPill, memory.requester(SEARCH_PILL), Modifier.fillMaxWidth()) { id ->
+            if (id == filterId) return@FilterPills
+            isArtReady = false
             filterId = id
             vm.allGamesFilter = id
         }
@@ -151,6 +159,7 @@ fun GamesScreen(vm: MainViewModel) {
                     marker = if (game.path in favourites) "★" else null,
                     showCaption = focused,
                     artScale = ContentScale.Fit,
+                    loadArt = isArtReady,
                     modifier = memory.tag(game.path)
                         .onFocusChanged { focused = it.isFocused }
                         .focusProperties { if (index < cell.columns) up = selectedPill }
