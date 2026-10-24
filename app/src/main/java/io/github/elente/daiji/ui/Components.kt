@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
+import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
@@ -43,7 +44,7 @@ fun FocusCard(
     shape: Shape = RoundedCornerShape(10.dp),
     container: Color = DaijiColors.Surface,
     focusedContainer: Color = container,
-    focusedScale: Float = 1.06f,
+    focusedScale: Float = 1.08f,
     showRing: Boolean = true,
     onLongClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
@@ -64,11 +65,12 @@ fun FocusCard(
         scale = ClickableSurfaceDefaults.scale(focusedScale = focusedScale),
         border = if (showRing) {
             ClickableSurfaceDefaults.border(
-                focusedBorder = Border(border = BorderStroke(2.dp, DaijiColors.GlassEdge), shape = shape),
+                focusedBorder = Border(border = BorderStroke(3.dp, DaijiColors.FocusEdge), shape = shape),
             )
         } else {
             ClickableSurfaceDefaults.border()
         },
+        glow = if (showRing) ClickableSurfaceDefaults.glow(focusedGlow = Glow(DaijiColors.FocusGlow, 14.dp)) else ClickableSurfaceDefaults.glow(),
         content = content,
     )
 }

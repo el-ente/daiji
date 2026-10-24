@@ -213,3 +213,13 @@ private fun EmptyLibrary(
         )
     }
 }
+
+@Composable
+fun ScreenTitle(title: String, count: Int) {
+    Text(
+        text = "$title  ·  ${"%,d".format(count)}",
+        color = DaijiColors.Text,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Light,
+    )
+}

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -82,6 +83,7 @@ fun GameTile(
     modifier: Modifier = Modifier,
     landscape: Boolean = false,
     titleSize: TextUnit = 15.sp,
+    marker: String? = null,
 ) {
     FocusCard(
         onClick = onClick,
@@ -117,6 +119,7 @@ fun GameTile(
                         .padding(12.dp),
                 )
             }
+            marker?.let { Marker(it, Modifier.align(Alignment.TopEnd).padding(8.dp)) }
         }
     }
 }
@@ -133,12 +136,24 @@ private fun ArtCaption(title: String, size: TextUnit, modifier: Modifier) {
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color.Transparent, CaptionShade)))
-            .padding(start = 12.dp, end = 12.dp, top = 18.dp, bottom = 10.dp),
+            .background(Brush.verticalGradient(listOf(Color.Transparent, DaijiColors.Scrim)))
+            .padding(start = 10.dp, end = 10.dp, top = 22.dp, bottom = 8.dp),
     )
 }
 
-private val CaptionShade = Color(0xCC000000)
+/** ▶ ★ 🎲 on a solid dark disc, so they stay visible over busy art. */
+@Composable
+private fun Marker(glyph: String, modifier: Modifier) {
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(DaijiColors.Marker),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, color = DaijiColors.Text, fontSize = 14.sp)
+    }
+}
 
 @Composable
 private fun rememberTileArt(path: String?, width: Dp, height: Dp) = with(LocalDensity.current) {

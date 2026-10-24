@@ -36,7 +36,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Screen { HOME, ALL_GAMES, ALL_APPS, SETTINGS, SETUP }
+enum class Screen { HOME, ALL_GAMES, SETTINGS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
