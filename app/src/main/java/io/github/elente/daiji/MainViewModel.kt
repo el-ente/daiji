@@ -25,6 +25,7 @@ import io.github.elente.daiji.data.Systems
 import io.github.elente.daiji.launch.Emulator
 import io.github.elente.daiji.launch.Emulators
 import io.github.elente.daiji.launch.GameLauncher
+import io.github.elente.daiji.remote.KeyServiceRepair
 import io.github.elente.daiji.setup.RetroArchSetup
 import io.github.elente.daiji.setup.SetupState
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +38,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, GAMES_SETTINGS, SETUP }
+enum class Screen { HOME, SEARCH, ALL_GAMES, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -115,6 +116,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onResume() {
         val hadAccess = _hasStorageAccess.value
         _hasStorageAccess.value = checkStorageAccess()
+        KeyServiceRepair.repair(getApplication())
         viewModelScope.launch(Dispatchers.IO) {
             refreshPlayStats()
             _network.value = Network.label(getApplication())

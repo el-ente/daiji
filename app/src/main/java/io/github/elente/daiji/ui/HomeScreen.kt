@@ -181,6 +181,7 @@ fun HomeScreen(vm: MainViewModel) {
     if (settingsMenu) {
         SettingsMenuDialog(
             onOpenLauncherSettings = { vm.open(Screen.SETTINGS) },
+            onOpenRemoteButtons = { vm.open(Screen.REMOTE_BUTTONS) },
             onDismiss = { settingsMenu = false },
         )
     }

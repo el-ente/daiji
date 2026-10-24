@@ -32,7 +32,7 @@ fun openAndroidSettings(context: Context) {
 
 /** Hold OK or Menu on the Home gear: Android settings or Daiji's own. */
 @Composable
-fun SettingsMenuDialog(onOpenLauncherSettings: () -> Unit, onDismiss: () -> Unit) {
+fun SettingsMenuDialog(onOpenLauncherSettings: () -> Unit, onOpenRemoteButtons: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     Dialog(onDismissRequest = onDismiss) {
@@ -57,6 +57,10 @@ fun SettingsMenuDialog(onOpenLauncherSettings: () -> Unit, onDismiss: () -> Unit
             )
             PillButton(text = stringResource(R.string.launcher_settings), modifier = Modifier.fillMaxWidth(), onClick = {
                 onOpenLauncherSettings()
+                onDismiss()
+            })
+            PillButton(text = stringResource(R.string.remote_buttons), modifier = Modifier.fillMaxWidth(), onClick = {
+                onOpenRemoteButtons()
                 onDismiss()
             })
         }

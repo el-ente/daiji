@@ -96,6 +96,26 @@ Home is the first screen, and Back always returns to it, to the element you left
 
 Remotes with a Menu key can use it wherever holding OK works.
 
+## Remote buttons
+
+Settings › Remote buttons maps any remote button to an app, a TV input (HDMI, AV) or an action: close all apps
+(goes Home, then stops every app in the background), Home, Back, recent apps, mute, sleep or Android settings. A
+button can do something else when held. Add one by pressing it; the arrows, OK, Back, Home and volume can't be mapped.
+
+The buttons work from any app through an accessibility service, which Android makes you turn on once:
+
+```sh
+adb shell settings put secure enabled_accessibility_services io.github.elente.daiji/.remote.RemoteKeyService
+adb shell settings put secure accessibility_enabled 1
+```
+
+That replaces the whole list; add other services separated by `:`. Android switches the service off when Daiji is
+updated. To let Daiji switch it back on by itself, grant it once:
+
+```sh
+adb shell pm grant io.github.elente.daiji android.permission.WRITE_SECURE_SETTINGS
+```
+
 ## Emulators
 
 | Emulator | Systems |
