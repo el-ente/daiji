@@ -183,7 +183,7 @@ fun GamesScreen(vm: MainViewModel) {
                 GameTile(
                     game = game,
                     onClick = if (isOwned) ({ vm.launch(game) }) else showNotInLibrary,
-                    onLongClick = if (isOwned) ({ vm.toggleFavourite(game) }) else showNotInLibrary,
+                    onLongClick = if (isOwned) ({ vm.openDetail(game) }) else showNotInLibrary,
                     marker = if (game.path in favourites) "★" else null,
                     showCaption = focused,
                     artScale = ContentScale.Fit,
