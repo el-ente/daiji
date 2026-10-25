@@ -118,4 +118,13 @@
     <string name="emulator_refused">%1$s rechazó el inicio</string>
     <string name="cannot_share_file">No se puede compartir %1$s con %2$s</string>
     <string name="open_with">Abrir %1$s con</string>
+    <string name="play">Jugar</string>
+    <string name="add_to_favourites">☆ Agregar a favoritos</string>
+    <string name="is_favourite">★ Favorito</string>
+    <string name="developer">Desarrollador</string>
+    <string name="publisher">Distribuidor</string>
+    <plurals name="players">
+        <item quantity="one">%d jugador</item>
+        <item quantity="other">%d jugadores</item>
+    </plurals>
 </resources>

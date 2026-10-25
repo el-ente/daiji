@@ -119,4 +119,13 @@
     <string name="emulator_refused">%1$s refused the launch</string>
     <string name="cannot_share_file">Can\'t share %1$s with %2$s</string>
     <string name="open_with">Open %1$s with</string>
+    <string name="play">Play</string>
+    <string name="add_to_favourites">☆ Add to favourites</string>
+    <string name="is_favourite">★ Favourite</string>
+    <string name="developer">Developer</string>
+    <string name="publisher">Publisher</string>
+    <plurals name="players">
+        <item quantity="one">%d player</item>
+        <item quantity="other">%d players</item>
+    </plurals>
 </resources>

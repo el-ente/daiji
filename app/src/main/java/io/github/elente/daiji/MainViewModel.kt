@@ -49,7 +49,7 @@ import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
-enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
+enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP, GAME_DETAIL }
 
 /** Share of random picks drawn from acclaimed games; the rest come from the whole library. */
 private const val ACCLAIMED_PICK_SHARE = 0.75f
@@ -100,6 +100,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Favourite game path to the time it was added. */
     private val _favourites = MutableStateFlow(prefs.favourites())
     val favourites: StateFlow<Map<String, Long>> = _favourites.asStateFlow()
+
+    /** Path of the game the detail page shows; the page reads the game from the library so a rescan updates it. */
+    var detailGamePath: String? = null
+        private set
 
     private val _pinnedApps = MutableStateFlow(prefs.pinnedApps())
     val pinnedApps: StateFlow<List<String>?> = _pinnedApps.asStateFlow()
@@ -193,6 +197,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (screen == _screen.value) return
         backStack.addLast(_screen.value)
         _screen.value = screen
+    }
+
+    fun openDetail(game: Game) {
+        detailGamePath = game.path
+        open(Screen.GAME_DETAIL)
     }
 
     /** Back pops one screen; the launcher is the bottom of the stack, so it never leaves Home. */

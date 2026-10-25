@@ -81,7 +81,7 @@ fun SearchScreen(vm: MainViewModel) {
                             GameTile(
                                 game = game,
                                 onClick = { vm.launch(game) },
-                                onLongClick = { vm.toggleFavourite(game) },
+                                onLongClick = { vm.openDetail(game) },
                                 modifier = memory.tag(game.path).width(GameResultWidth).aspectRatio(3f / 4f),
                             )
                         }
