@@ -145,7 +145,7 @@ private fun GameInfo(game: Game) {
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
     )
-    val players = info.players?.let { pluralStringResource(R.plurals.players, it, it) }
+    val players = info.players?.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.players, it, it) }
     val meta = listOfNotNull(info.year?.toString(), players, info.genre).joinToString("  ·  ")
     if (meta.isNotEmpty()) Text(meta, color = DaijiColors.Text, fontSize = 18.sp)
     info.developer?.let { InfoField(stringResource(R.string.developer), it) }
