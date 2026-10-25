@@ -1,5 +1,6 @@
 package io.github.elente.daiji.ui
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,7 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -51,7 +54,8 @@ fun SearchScreen(vm: MainViewModel) {
 
     val memory = rememberFocusMemory { vm.focusMemory[Screen.SEARCH] = it }
     LaunchedEffect(Unit) { memory.restore(vm.focusMemory[Screen.SEARCH], FIELD) }
-    val firstResult = games.firstOrNull()?.path ?: foundApps.firstOrNull()?.packageName
+    val firstRow = remember { FocusRequester() }
+    val hasResults = query.isNotBlank() && (games.isNotEmpty() || foundApps.isNotEmpty())
 
     Column(
         modifier = Modifier
@@ -64,7 +68,7 @@ fun SearchScreen(vm: MainViewModel) {
             onQueryChange = vm::setSearchQuery,
             placeholder = "Search games and apps",
             modifier = memory.tag(FIELD)
-                .focusProperties { if (firstResult != null) down = memory.requester(firstResult) }
+                .focusProperties { if (hasResults) down = firstRow }
                 .fillMaxWidth(),
         )
         when {
@@ -72,7 +76,7 @@ fun SearchScreen(vm: MainViewModel) {
             games.isEmpty() && foundApps.isEmpty() -> Hint("Nothing matches “${query.trim()}”.")
             else -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 if (games.isNotEmpty()) {
-                    ResultRow("Games", games.size) {
+                    ResultRow("Games", games.size, Modifier.focusRequester(firstRow)) {
                         items(games, key = { it.path }) { game ->
                             GameTile(
                                 game = game,
@@ -84,7 +88,7 @@ fun SearchScreen(vm: MainViewModel) {
                     }
                 }
                 if (foundApps.isNotEmpty()) {
-                    ResultRow("Apps", foundApps.size) {
+                    ResultRow("Apps", foundApps.size, if (games.isEmpty()) Modifier.focusRequester(firstRow) else Modifier) {
                         items(foundApps, key = { it.packageName }) { app ->
                             AppTile(
                                 app = app,
@@ -115,10 +119,11 @@ private fun Hint(text: String) {
 }
 
 @Composable
-private fun ResultRow(label: String, count: Int, tiles: LazyListScope.() -> Unit) {
+private fun ResultRow(label: String, count: Int, modifier: Modifier, tiles: LazyListScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("${label.uppercase()}  ·  $count", color = DaijiColors.Muted, fontSize = 11.sp, letterSpacing = 2.sp)
         LazyRow(
+            modifier = modifier.focusGroup(),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
             content = tiles,
