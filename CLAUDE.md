@@ -18,9 +18,12 @@ A PR that changes a screen's layout or focus is tested with the D-pad on the emu
    and where focus starts. The test checks the screen against that map.
 2. Drive the screen with `adb shell input keyevent KEYCODE_DPAD_UP` (and `_DOWN`, `_LEFT`, `_RIGHT`, `_CENTER`, `KEYCODE_BACK`),
    with a screenshot after each key to see where focus landed.
-3. Every focusable element must be reachable, and Up, Down, Left, Right, OK and Back must land where the user expects
+3. Before testing keys, check that `adb shell dumpsys accessibility` shows `Crashed services:{}`. A reinstall or force stop
+   leaves Daiji's key service crashed but still filtering keys, so every press lags about 500 ms and turns into a long press.
+   Daiji turns it off and on about 3 s after it opens; if it stays crashed, that repair is broken.
+4. Every focusable element must be reachable, and Up, Down, Left, Right, OK and Back must land where the user expects
    from each of them, as the focus map says. A key that does nothing or opens something by surprise (like the keyboard) is a bug.
-4. List the paths tested and their result in the PR description.
+5. List the paths tested and their result in the PR description.
 
 ## Screenshots in PRs
 
