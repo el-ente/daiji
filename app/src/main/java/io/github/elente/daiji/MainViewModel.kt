@@ -29,8 +29,11 @@ import io.github.elente.daiji.launch.Emulators
 import io.github.elente.daiji.launch.GameLauncher
 import io.github.elente.daiji.remote.KeyServiceRepair
 import io.github.elente.daiji.setup.RetroArchSetup
+import io.github.elente.daiji.setup.ThumbnailScraper
 import io.github.elente.daiji.setup.SetupState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,12 +42,19 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP }
 
 /** Share of random picks drawn from acclaimed games; the rest come from the whole library. */
 private const val ACCLAIMED_PICK_SHARE = 0.75f
+
+/** How many downloaded covers between refreshes of the Acclaimed view. */
+private const val COVER_REFRESH_EVERY = 10
+
+/** The thumbnail server answers slowly, so covers download side by side. */
+private const val COVER_DOWNLOADS_AT_ONCE = 6
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -93,6 +103,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Loaded on first use, which is the first library set on the IO thread. */
     val acclaimed: AcclaimedGames by lazy { AcclaimedGames.load(app) }
 
+    private var acclaimedCoverJob: Job? = null
     private val _acclaimedView = MutableStateFlow(AcclaimedView.EMPTY)
     val acclaimedView: StateFlow<AcclaimedView> = _acclaimedView.asStateFlow()
 
@@ -148,7 +159,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (pkg == null) {
                 retroArchSetup.installRetroArch()
             } else {
-                retroArchSetup.provision(_library.value, pkg, acclaimed)
+                retroArchSetup.provision(_library.value, pkg)
                 scan()
             }
             refreshSetup()
@@ -270,8 +281,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun setLibrary(library: Library) {
         _library.value = library
-        _acclaimedView.value = acclaimed.view(library)
+        refreshAcclaimedView()
         if (_randomPick.value?.path !in library.byPath) rerollRandom()
+        fetchAcclaimedCovers()
+    }
+
+    /**
+     * Box art for acclaimed games not in the library, downloaded in the background so the Acclaimed view shows covers
+     * without running setup. The view refreshes as covers arrive; one fetch at a time, files already there are skipped.
+     */
+    private fun fetchAcclaimedCovers() {
+        if (acclaimedCoverJob?.isActive == true) return
+        acclaimedCoverJob = viewModelScope.launch(Dispatchers.IO) {
+            val requests = ThumbnailScraper.missingAcclaimedCovers(acclaimed.missing(_library.value))
+            val done = AtomicInteger()
+            requests.withIndex()
+                .groupBy({ it.index % COVER_DOWNLOADS_AT_ONCE }, { it.value })
+                .values
+                .map { slice ->
+                    launch {
+                        runCatching {
+                            ThumbnailScraper.scrape(slice) { _, _ ->
+                                if (done.incrementAndGet() % COVER_REFRESH_EVERY == 0) refreshAcclaimedView()
+                            }
+                        }
+                    }
+                }
+                .joinAll()
+            refreshAcclaimedView()
+        }
+    }
+
+    private fun refreshAcclaimedView() {
+        _acclaimedView.value = acclaimed.view(_library.value)
     }
 
     fun toggleFavourite(game: Game) {
