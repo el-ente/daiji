@@ -60,12 +60,20 @@ object Systems {
     private val byId: Map<String, GameSystem> = all.associateBy { it.id }
     private val byFolder: Map<String, GameSystem> =
         all.flatMap { s -> s.folders.map { it to s } }.toMap()
+    private val byUniqueExtension: Map<String, GameSystem> =
+        all.flatMap { s -> (s.extensions - archives).map { it to s } }
+            .groupBy({ it.first }, { it.second })
+            .filterValues { it.size == 1 }
+            .mapValues { it.value.single() }
     private val order: Map<String, Int> = all.withIndex().associate { it.value.id to it.index }
 
     fun byId(id: String): GameSystem? = byId[id]
 
     fun byFolder(folderName: String): GameSystem? =
         byFolder[folderName.lowercase().replace(" ", "").replace("-", "").replace("_", "")]
+
+    /** The system a ROM extension belongs to, or null when several systems share it. */
+    fun byExtension(extension: String): GameSystem? = byUniqueExtension[extension.lowercase()]
 
     fun order(id: String): Int = order[id] ?: Int.MAX_VALUE
 }

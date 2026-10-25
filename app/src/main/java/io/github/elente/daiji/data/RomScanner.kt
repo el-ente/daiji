@@ -3,9 +3,12 @@ package io.github.elente.daiji.data
 import android.os.Environment
 import org.json.JSONObject
 import java.io.File
+import java.util.zip.ZipFile
 
 /**
  * Scans a ROMs folder laid out as one subfolder per system, e.g. `ROMs/snes/Game.sfc`.
+ * A subfolder named after no system (`Roms snes`, `Mis juegos`) still gets scanned:
+ * each game goes to the system its file extension, or the one inside its zip, belongs to.
  * Plain file access is used on purpose: it is much faster than the Storage Access
  * Framework, and RetroArch needs real file paths anyway.
  */
@@ -40,12 +43,29 @@ object RomScanner {
     fun scan(root: File): List<Game> {
         val dirs = root.listFiles() ?: return emptyList()
         return dirs.filter { it.isDirectory }
-            .flatMap { dir -> Systems.byFolder(dir.name)?.let { scanSystem(dir, it) }.orEmpty() }
+            .flatMap(::scanFolder)
             .sortedWith(compareBy<Game>({ Systems.order(it.systemId) }, { it.title.lowercase() }))
     }
 
-    private fun scanSystem(dir: File, system: GameSystem): List<Game> {
-        val files = dir.listFiles() ?: return emptyList()
+    private fun scanFolder(dir: File): List<Game> {
+        val files = dir.listFiles()?.toList() ?: return emptyList()
+        Systems.byFolder(dir.name)?.let { return scanSystem(dir, it, files) }
+        return files.filter { it.isFile }
+            .groupBy(::detectSystem)
+            .flatMap { (system, group) -> system?.let { scanSystem(dir, it, group) }.orEmpty() }
+    }
+
+    /** Only extensions a single system uses count: a `.bin` or `.iso` could be one of several. */
+    private fun detectSystem(file: File): GameSystem? =
+        if (file.extension.equals("zip", ignoreCase = true)) zippedSystem(file) else Systems.byExtension(file.extension)
+
+    private fun zippedSystem(zip: File): GameSystem? = runCatching {
+        ZipFile(zip).use { archive ->
+            archive.entries().asSequence().firstNotNullOfOrNull { Systems.byExtension(File(it.name).extension) }
+        }
+    }.getOrNull()
+
+    private fun scanSystem(dir: File, system: GameSystem, files: List<File>): List<Game> {
         val roms = romFiles(files, system)
         val media = SystemMedia(dir, system)
         val labels = system.retroArchName?.let { playlistLabels(File(retroArchDir, "playlists/$it.lpl")) }.orEmpty()
@@ -65,7 +85,7 @@ object RomScanner {
         }
     }
 
-    private fun romFiles(files: Array<File>, system: GameSystem): List<File> {
+    private fun romFiles(files: List<File>, system: GameSystem): List<File> {
         val discs = discsListedInM3u(files)
         return files.filter {
             it.isFile && !it.name.startsWith(".") &&
@@ -75,7 +95,7 @@ object RomScanner {
     }
 
     /** Multi-disc games: the discs an .m3u playlist lists are hidden behind it. */
-    private fun discsListedInM3u(files: Array<File>): Set<String> =
+    private fun discsListedInM3u(files: List<File>): Set<String> =
         files.filter { it.extension.equals("m3u", ignoreCase = true) }
             .flatMap { m3u -> runCatching { m3u.readLines() }.getOrDefault(emptyList()) }
             .map { it.trim() }
