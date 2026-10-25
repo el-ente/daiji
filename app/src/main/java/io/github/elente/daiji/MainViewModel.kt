@@ -33,6 +33,9 @@ import io.github.elente.daiji.setup.ThumbnailScraper
 import io.github.elente.daiji.setup.SetupState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +45,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -293,23 +297,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun fetchAcclaimedCovers() {
         if (acclaimedCoverJob?.isActive == true) return
         acclaimedCoverJob = viewModelScope.launch(Dispatchers.IO) {
-            val requests = ThumbnailScraper.missingAcclaimedCovers(acclaimed.missing(_library.value))
-            val done = AtomicInteger()
-            requests.withIndex()
-                .groupBy({ it.index % COVER_DOWNLOADS_AT_ONCE }, { it.value })
-                .values
-                .map { slice ->
-                    launch {
-                        runCatching {
-                            ThumbnailScraper.scrape(slice) { _, _ ->
-                                if (done.incrementAndGet() % COVER_REFRESH_EVERY == 0) refreshAcclaimedView()
-                            }
+            do {
+                val library = _library.value
+                downloadAcclaimedCovers(library)
+            } while (_library.value !== library)
+        }
+    }
+
+    private suspend fun downloadAcclaimedCovers(library: Library) = coroutineScope {
+        val requests = ThumbnailScraper.missingAcclaimedCovers(acclaimed.missing(library))
+        val done = AtomicInteger()
+        requests.withIndex()
+            .groupBy({ it.index % COVER_DOWNLOADS_AT_ONCE }, { it.value })
+            .values
+            .map { slice ->
+                launch {
+                    val job = coroutineContext.job
+                    try {
+                        ThumbnailScraper.scrape(slice) { _, _ ->
+                            job.ensureActive()
+                            if (done.incrementAndGet() % COVER_REFRESH_EVERY == 0) refreshAcclaimedView()
                         }
+                    } catch (e: IOException) {
+                        // Offline or the server is failing; the next launch tries again.
                     }
                 }
-                .joinAll()
-            refreshAcclaimedView()
-        }
+            }
+            .joinAll()
+        refreshAcclaimedView()
     }
 
     private fun refreshAcclaimedView() {
