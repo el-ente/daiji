@@ -10,9 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     timeout-minutes: 30
+    # Releases from main run one at a time, so two quick merges never pick the same version.
+    concurrency:
+      group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || github.run_id }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -21,17 +28,73 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # A merge to main bumps the latest release: patch by default, minor or major when a PR merged since then has
+      # that label. A pushed v* tag releases as itself. Anything else builds without releasing.
+      - name: Pick the version
+        id: version
+        run: |
+          valid='^v(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$'
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+          elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+            existing=$(git tag --points-at "$GITHUB_SHA" -l 'v*' | grep -E "$valid" | sort -V | tail -n 1 || true)
+            latest=$(git tag -l 'v*' | grep -E "$valid" | sort -V | tail -n 1 || true)
+            if [[ -n "$existing" ]]; then
+              # A re-run of a run that already released.
+              tag="$existing"
+            elif [[ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$GITHUB_SHA" ]]; then
+              echo "::notice::main has moved past this commit; the newer run releases it."
+              exit 0
+            elif [[ -z "$latest" ]]; then
+              tag=v0.1.0
+            else
+              bump=patch
+              for commit in $(git rev-list --first-parent "$latest..$GITHUB_SHA"); do
+                # GitHub links a merge commit to its PR a few seconds after the merge.
+                for attempt in 1 2 3; do
+                  pulls=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/pulls" --jq '[.[] | select(.merged_at != null)] | length')
+                  [[ "$pulls" != 0 || "$commit" != "$GITHUB_SHA" ]] && break
+                  sleep 10
+                done
+                labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/pulls" --jq '[.[] | select(.merged_at != null)][0].labels[]?.name')
+                if grep -qx major <<< "$labels"; then
+                  bump=major
+                elif grep -qx minor <<< "$labels" && [[ "$bump" == patch ]]; then
+                  bump=minor
+                fi
+              done
+              IFS=. read -r major minor patch <<< "${latest#v}"
+              major=$((10#$major)) minor=$((10#$minor)) patch=$((10#$patch))
+              case "$bump" in
+                major) major=$((major + 1)) minor=0 patch=0 ;;
+                minor) minor=$((minor + 1)) patch=0 ;;
+                patch) patch=$((patch + 1)) ;;
+              esac
+              # Each number stays within 0-99 so the version code keeps going up.
+              if (( patch > 99 )); then minor=$((minor + 1)) patch=0; fi
+              if (( minor > 99 )); then major=$((major + 1)) minor=0; fi
+              tag="v$major.$minor.$patch"
+            fi
+          else
+            exit 0
+          fi
+          if [[ ! "$tag" =~ $valid ]]; then
+            echo "::error::Release tags must look like v1.2.3, each number 0-99: $tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Build release APK
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
-              echo "::error::Release tags must look like v1.2.3, each number 0-99: $GITHUB_REF_NAME"
-              exit 1
-            fi
-            ./gradlew --no-daemon assembleRelease -PversionName="${GITHUB_REF_NAME#v}"
+          if [[ -n "$TAG" ]]; then
+            ./gradlew --no-daemon assembleRelease -PversionName="${TAG#v}"
           else
             ./gradlew --no-daemon assembleRelease
           fi
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -40,16 +103,17 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      # Pushing a tag like v0.2.0 publishes a release; Daiji's update check reads the latest one.
+      # Daiji's update check reads the latest release. Creating the release also creates its tag on this commit.
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: steps.version.outputs.tag != ''
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "daiji-$GITHUB_REF_NAME.apk"
-          # A re-run on the same tag replaces the APK instead of failing on the existing release.
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "daiji-$GITHUB_REF_NAME.apk" --clobber
+          cp app/build/outputs/apk/release/app-release.apk "daiji-$TAG.apk"
+          # A re-run, or a release made by hand on the site, gets the APK instead of a second release.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "daiji-$TAG.apk" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "daiji-$GITHUB_REF_NAME.apk" --title "Daiji $GITHUB_REF_NAME" --generate-notes
+            gh release create "$TAG" "daiji-$TAG.apk" --target "$GITHUB_SHA" --title "Daiji $TAG" --generate-notes
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
