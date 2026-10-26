@@ -158,7 +158,8 @@ builds the APK with that version, and creates the tag and the release:
 
 - By default the patch number goes up: `v0.1.3` → `v0.1.4`.
 - A PR labelled `minor` gives `v0.2.0`; one labelled `major` gives `v1.0.0`.
+  When several PRs land in one release, the biggest label wins.
 - The first release is `v0.1.0`.
 
 Each number stays within 0-99, because the version code is computed from them
-and it must go up for an update to install. Past `.99`, label the PR `minor`.
+and it must go up for an update to install: `v0.1.99` is followed by `v0.2.0`.

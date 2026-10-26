@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
     # Releases from main run one at a time, so two quick merges never pick the same version.
     concurrency:
-      group: ${{ github.ref == 'refs/heads/main' && 'release' || github.run_id }}
+      group: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || github.run_id }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
@@ -28,32 +28,57 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # A merge to main bumps the latest v* tag: patch by default, minor or major when the PR has that label.
-      # A pushed v* tag releases as itself. Anything else builds without releasing.
+      # A merge to main bumps the latest release: patch by default, minor or major when a PR merged since then has
+      # that label. A pushed v* tag releases as itself. Anything else builds without releasing.
       - name: Pick the version
         id: version
         run: |
+          valid='^v(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$'
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             tag="$GITHUB_REF_NAME"
           elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-            latest=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
-            if [[ -z "$latest" ]]; then
+            existing=$(git tag --points-at "$GITHUB_SHA" -l 'v*' | grep -E "$valid" | sort -V | tail -n 1 || true)
+            latest=$(git tag -l 'v*' | grep -E "$valid" | sort -V | tail -n 1 || true)
+            if [[ -n "$existing" ]]; then
+              # A re-run of a run that already released.
+              tag="$existing"
+            elif [[ "$(git ls-remote origin refs/heads/main | cut -f1)" != "$GITHUB_SHA" ]]; then
+              echo "::notice::main has moved past this commit; the newer run releases it."
+              exit 0
+            elif [[ -z "$latest" ]]; then
               tag=v0.1.0
             else
+              bump=patch
+              for commit in $(git rev-list --first-parent "$latest..$GITHUB_SHA"); do
+                # GitHub links a merge commit to its PR a few seconds after the merge.
+                for attempt in 1 2 3; do
+                  pulls=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/pulls" --jq '[.[] | select(.merged_at != null)] | length')
+                  [[ "$pulls" != 0 || "$commit" != "$GITHUB_SHA" ]] && break
+                  sleep 10
+                done
+                labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$commit/pulls" --jq '[.[] | select(.merged_at != null)][0].labels[]?.name')
+                if grep -qx major <<< "$labels"; then
+                  bump=major
+                elif grep -qx minor <<< "$labels" && [[ "$bump" == patch ]]; then
+                  bump=minor
+                fi
+              done
               IFS=. read -r major minor patch <<< "${latest#v}"
-              labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].labels[].name' || true)
-              if grep -qx major <<< "$labels"; then
-                tag="v$((major + 1)).0.0"
-              elif grep -qx minor <<< "$labels"; then
-                tag="v$major.$((minor + 1)).0"
-              else
-                tag="v$major.$minor.$((patch + 1))"
-              fi
+              major=$((10#$major)) minor=$((10#$minor)) patch=$((10#$patch))
+              case "$bump" in
+                major) major=$((major + 1)) minor=0 patch=0 ;;
+                minor) minor=$((minor + 1)) patch=0 ;;
+                patch) patch=$((patch + 1)) ;;
+              esac
+              # Each number stays within 0-99 so the version code keeps going up.
+              if (( patch > 99 )); then minor=$((minor + 1)) patch=0; fi
+              if (( minor > 99 )); then major=$((major + 1)) minor=0; fi
+              tag="v$major.$minor.$patch"
             fi
           else
             exit 0
           fi
-          if [[ ! "$tag" =~ ^v[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+          if [[ ! "$tag" =~ $valid ]]; then
             echo "::error::Release tags must look like v1.2.3, each number 0-99: $tag"
             exit 1
           fi
@@ -83,7 +108,7 @@ jobs:
         if: steps.version.outputs.tag != ''
         run: |
           cp app/build/outputs/apk/release/app-release.apk "daiji-$TAG.apk"
-          # A re-run on the same tag replaces the APK instead of failing on the existing release.
+          # A re-run, or a release made by hand on the site, gets the APK instead of a second release.
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" "daiji-$TAG.apk" --clobber
           else
