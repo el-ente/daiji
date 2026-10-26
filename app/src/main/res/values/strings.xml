@@ -70,6 +70,12 @@
     <string name="remote_buttons">Remote buttons</string>
     <string name="power_menu">Restart or power off</string>
     <string name="android_settings">Android settings</string>
+    <string name="check_for_updates">Check for updates</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">Up to date</string>
+    <string name="update_available">%1$s available — select to install</string>
+    <string name="update_downloading">Downloading %1$d%%</string>
+    <string name="update_failed">Couldn\'t reach GitHub — select to retry</string>
     <string name="home_screen_hint">To make Daiji your home screen on Google TV, disable the stock launcher over ADB:</string>
     <string name="remote_key_service_description">Lets the remote buttons you set in Daiji\'s settings open apps, switch inputs or close all apps, from anywhere. Daiji reads only those buttons; every other key passes through.</string>
     <string name="grant_over_adb">Grant it over ADB: %1$s</string>

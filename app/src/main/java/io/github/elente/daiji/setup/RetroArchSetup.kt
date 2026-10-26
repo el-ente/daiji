@@ -51,8 +51,8 @@ class RetroArchSetup(private val context: Context, private val prefs: Prefs) {
 
     /** Fetches the APK and hands it to the system installer. Finishes once the user confirms there. */
     fun installRetroArch() = run(Step.INSTALL) {
-        if (!RetroArchInstaller.canInstall(context)) {
-            RetroArchInstaller.openUnknownSourcesSettings(context)
+        if (!ApkInstaller.canInstall(context)) {
+            ApkInstaller.openUnknownSourcesSettings(context)
             error(context.getString(R.string.allow_install))
         }
         RetroArchInstaller.download { read, total -> setStatus(Step.INSTALL, StepStatus.RUNNING, progress(read, total)) }

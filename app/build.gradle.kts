@@ -1,5 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// CI passes the tag's version (`-PversionName=0.2.0`) when it builds a release.
+val appVersion = providers.gradleProperty("versionName").getOrElse("0.1.0")
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,8 +17,9 @@ android {
         applicationId = "io.github.elente.daiji"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // 1.2.3 -> 10203, so every release installs over the one before it.
+        versionCode = appVersion.split('.').map(String::toInt).fold(0) { code, part -> code * 100 + part }
+        versionName = appVersion
     }
 
     signingConfigs {

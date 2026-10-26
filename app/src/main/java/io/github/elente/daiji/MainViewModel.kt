@@ -31,6 +31,9 @@ import io.github.elente.daiji.remote.KeyServiceRepair
 import io.github.elente.daiji.setup.RetroArchSetup
 import io.github.elente.daiji.setup.ThumbnailScraper
 import io.github.elente.daiji.setup.SetupState
+import io.github.elente.daiji.setup.ApkInstaller
+import io.github.elente.daiji.update.AppUpdater
+import io.github.elente.daiji.update.Release
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -48,6 +51,16 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
+
+/** Where Settings' update row stands; the check runs only when the user asks for it. */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data class Available(val release: Release) : UpdateState
+    data class Downloading(val release: Release, val percent: Int) : UpdateState
+    data object Failed : UpdateState
+}
 
 enum class Screen { HOME, SEARCH, ALL_GAMES, ALL_APPS, SETTINGS, GAMES_SETTINGS, REMOTE_BUTTONS, SETUP, GAME_DETAIL }
 
@@ -129,6 +142,50 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val retroArchSetup = RetroArchSetup(app, prefs)
     val setup: StateFlow<SetupState> = retroArchSetup.state
+
+    private val _update = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val update: StateFlow<UpdateState> = _update.asStateFlow()
+
+    /** OK on the update row: checks GitHub, or installs the release the last check found. */
+    fun onUpdateRow() {
+        when (val state = _update.value) {
+            UpdateState.Checking, is UpdateState.Downloading -> Unit
+            is UpdateState.Available -> installUpdate(state.release)
+            else -> checkForUpdate()
+        }
+    }
+
+    private fun checkForUpdate() {
+        _update.value = UpdateState.Checking
+        viewModelScope.launch(Dispatchers.IO) {
+            _update.value = try {
+                AppUpdater.newerRelease()?.let { UpdateState.Available(it) } ?: UpdateState.UpToDate
+            } catch (e: Exception) {
+                UpdateState.Failed
+            }
+        }
+    }
+
+    private fun installUpdate(release: Release) {
+        val app = getApplication<Application>()
+        if (!ApkInstaller.canInstall(app)) {
+            ApkInstaller.openUnknownSourcesSettings(app)
+            return toast(string(R.string.allow_install))
+        }
+        _update.value = UpdateState.Downloading(release, 0)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val apk = AppUpdater.download(release) { read, total ->
+                    if (total > 0) _update.value = UpdateState.Downloading(release, (read * 100 / total).toInt())
+                }
+                withContext(Dispatchers.Main) { ApkInstaller.install(app, apk) }
+                _update.value = UpdateState.Available(release)
+            } catch (e: Exception) {
+                AppUpdater.apkFile(release).delete()
+                _update.value = UpdateState.Failed
+            }
+        }
+    }
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
