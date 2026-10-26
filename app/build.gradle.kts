@@ -18,7 +18,9 @@ android {
         minSdk = 26
         targetSdk = 35
         // 1.2.3 -> 10203, so every release installs over the one before it.
-        versionCode = appVersion.split('.').map(String::toInt).fold(0) { code, part -> code * 100 + part }
+        val parts = appVersion.split('.').map { it.toIntOrNull() ?: -1 }
+        require(parts.size == 3 && parts.all { it in 0..99 }) { "versionName must be major.minor.patch, each 0-99: $appVersion" }
+        versionCode = parts.fold(0) { code, part -> code * 100 + part }
         versionName = appVersion
     }
 

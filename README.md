@@ -161,5 +161,6 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-Use plain `major.minor.patch` numbers: the version code is computed from them,
-and it must go up for an update to install.
+Use plain `vMAJOR.MINOR.PATCH` tags, each number 0-99: the version code is
+computed from them, and it must go up for an update to install. CI rejects
+any other `v*` tag.
