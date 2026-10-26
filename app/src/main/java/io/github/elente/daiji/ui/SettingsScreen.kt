@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -14,19 +15,23 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Text
 import io.github.elente.daiji.BuildConfig
 import io.github.elente.daiji.MainViewModel
 import io.github.elente.daiji.R
 import io.github.elente.daiji.Screen
+import io.github.elente.daiji.UpdateState
 
 private const val ROW_GAMES = "games"
 private const val ROW_ANDROID = "android"
 private const val ROW_REMOTE = "remote"
+private const val ROW_UPDATE = "update"
 
 @Composable
 fun SettingsScreen(vm: MainViewModel) {
     val context = LocalContext.current
+    val update by vm.update.collectAsStateWithLifecycle()
     val memory = rememberFocusMemory { vm.focusMemory[Screen.SETTINGS] = it }
     LaunchedEffect(Unit) { memory.restore(vm.focusMemory[Screen.SETTINGS], ROW_GAMES) }
 
@@ -60,6 +65,14 @@ fun SettingsScreen(vm: MainViewModel) {
             )
         }
         item {
+            SettingRow(
+                title = stringResource(R.string.check_for_updates),
+                value = updateLabel(update),
+                onClick = vm::onUpdateRow,
+                modifier = memory.tag(ROW_UPDATE),
+            )
+        }
+        item {
             Text(
                 text = stringResource(R.string.home_screen_hint) + "\n" +
                     "adb shell pm disable-user --user 0 com.google.android.apps.tv.launcherx\n" +
@@ -73,6 +86,16 @@ fun SettingsScreen(vm: MainViewModel) {
             )
         }
     }
+}
+
+@Composable
+private fun updateLabel(state: UpdateState): String = when (state) {
+    UpdateState.Idle -> "Daiji ${BuildConfig.VERSION_NAME}"
+    UpdateState.Checking -> stringResource(R.string.update_checking)
+    UpdateState.UpToDate -> stringResource(R.string.update_up_to_date)
+    is UpdateState.Available -> stringResource(R.string.update_available, state.release.version)
+    is UpdateState.Downloading -> stringResource(R.string.update_downloading, state.percent)
+    UpdateState.Failed -> stringResource(R.string.update_failed)
 }
 
 @Composable

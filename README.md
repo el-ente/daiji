@@ -11,13 +11,13 @@ its cores, box art and game info from libretro.
 
 ## Install
 
-1. Open the latest run under **Actions → Build APK** and download the
-   `daiji-apk` artifact. Unzip it to get the APK.
+1. Download the APK from the latest release under **Releases**. Later
+   versions install from **Settings → Check for updates**.
 2. Install it over ADB:
 
    ```sh
    adb connect <tv-ip>
-   adb install -r app-release.apk
+   adb install -r daiji-v0.1.0.apk
    ```
 
 3. Give Daiji access to your ROMs. On Google TV the settings screen for this
@@ -150,3 +150,17 @@ performance, because Compose debug builds are much slower.
 `app/dev.keystore` is a development signing key, committed so that every
 build can update the previous install. Replace it before publishing the app
 anywhere.
+
+## Releasing
+
+Push a tag named after the version, and CI builds the APK and publishes the
+release:
+
+```sh
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Use plain `vMAJOR.MINOR.PATCH` tags, each number 0-99: the version code is
+computed from them, and it must go up for an update to install. CI rejects
+any other `v*` tag.

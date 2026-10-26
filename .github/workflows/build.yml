@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -20,7 +22,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{1,2}$ ]]; then
+              echo "::error::Release tags must look like v1.2.3, each number 0-99: $GITHUB_REF_NAME"
+              exit 1
+            fi
+            ./gradlew --no-daemon assembleRelease -PversionName="${GITHUB_REF_NAME#v}"
+          else
+            ./gradlew --no-daemon assembleRelease
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -28,3 +39,17 @@ jobs:
           name: daiji-apk
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      # Pushing a tag like v0.2.0 publishes a release; Daiji's update check reads the latest one.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "daiji-$GITHUB_REF_NAME.apk"
+          # A re-run on the same tag replaces the APK instead of failing on the existing release.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "daiji-$GITHUB_REF_NAME.apk" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "daiji-$GITHUB_REF_NAME.apk" --title "Daiji $GITHUB_REF_NAME" --generate-notes
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
